@@ -45,6 +45,21 @@ const emailTemplates = {
       `
     ),
 
+  clientRegistration: (name, email, password) =>
+    baseEmailTemplate(
+      `Bienvenue ${name} !`,
+      `
+        <p>Votre compte a été créé avec succès sur <strong>Yakalma</strong>.</p>
+        <p>Voici les détails de votre compte :</p>
+        <ul style="padding-left: 20px;">
+          <li><strong>Nom :</strong> ${name}</li>
+          <li><strong>Email :</strong> ${email}</li>
+          <li><strong>Mot de passe temporaire :</strong> ${password}</li>
+        </ul>
+        <p>Veuillez vous connecter et changer votre mot de passe dès que possible.</p>
+      `
+    ),
+
   livreurRegistration: (name) =>
     baseEmailTemplate(
       `Inscription reçue, ${name}`,
@@ -64,32 +79,30 @@ const emailTemplates = {
         <p>Bienvenue dans l'équipe <strong>Yakalma</strong> 🎉</p>
       `
     ),
-
-  livreurRejection: (name) =>
-    baseEmailTemplate(
-      `Bonjour ${name}`,
-      `
-        <p>Nous sommes désolés de vous informer que votre demande d'inscription n'a pas été retenue.</p>
-        <p>Si vous pensez qu'il s'agit d'une erreur, n'hésitez pas à nous contacter.</p>
-      `
-    ),
 };
 
 // Service d'envoi d'email
-const sendEmail = async (to, subject, htmlContent) => {
+const sendEmail = async (to, subject, templateKey, templateData = {}) => {
   try {
+    if (!emailTemplates[templateKey]) {
+      throw new Error(`Le template d'email "${templateKey}" est introuvable.`);
+    }
+
+    const values = Object.values(templateData || {});
+    const emailContent = emailTemplates[templateKey](...values);
+
     const mailOptions = {
       from: process.env.SMTP_FROM || '"Yakalma" <no-reply@yakalma.com>',
       to,
       subject,
-      html: htmlContent,
+      html: emailContent,
     };
 
     const info = await transporter.sendMail(mailOptions);
     console.log("Email envoyé:", info.messageId);
     return info;
   } catch (error) {
-    console.error("Erreur lors de l'envoi de l'email:", error);
+    console.error("Erreur lors de l'envoi de l'email:", error.message);
     throw error;
   }
 };

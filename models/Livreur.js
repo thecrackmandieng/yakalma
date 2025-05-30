@@ -5,13 +5,12 @@ const livreurSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
   password: { type: String, required: true },
-
   vehicleType: { type: String, required: true },
   vehicleNumber: { type: String, required: true },
-  idCardCopy: { type: String, required: true }, // Chemin de la photocopie de la carte d'identité
-  insuranceCopy: { type: String, required: true }, // Chemin de la copie de l'assurance
+  idCardCopy: { type: String, required: true }, // Path to the copy of the ID card
+  insuranceCopy: { type: String, required: true }, // Path to the copy of the insurance
 }, {
-  timestamps: true // Ajoute les champs createdAt et updatedAt
+  timestamps: true // Adds createdAt and updatedAt fields
 });
 
 const Livreur = mongoose.model('Livreur', livreurSchema);

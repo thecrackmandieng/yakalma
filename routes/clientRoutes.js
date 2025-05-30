@@ -1,8 +1,9 @@
+// routes/clientRoutes.js
+
 const express = require("express");
+const router = express.Router();
 const clientController = require("../controllers/clientController");
 const authMiddleware = require("../middlewares/authMiddleware");
-
-const router = express.Router();
 
 // Routes publiques
 router.post("/register", clientController.registerClient);

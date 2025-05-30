@@ -1,31 +1,49 @@
+// controllers/clientController.js
+
 const bcrypt = require('bcrypt');
 const Client = require('../models/Client');
+const { sendEmail } = require('../services/email');
+const generator = require('generate-password');
 
 // Inscription client
-exports.registerClient = async (req, res) => {
-  const { fullName, email, phone, password } = req.body;
+const registerClient = async (req, res) => {
+  const { fullName, email, phone } = req.body;
 
   try {
     const userExists = await Client.findOne({ email });
-    if (userExists) return res.status(400).json({ message: 'Client déjà existant' });
+    if (userExists) {
+      return res.status(400).json({ message: 'Client déjà existant' });
+    }
+
+    const password = generator.generate({
+      length: 10,
+      numbers: true,
+      symbols: true,
+      uppercase: true,
+      excludeSimilarCharacters: true,
+    });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const newClient = new Client({ fullName, email, phone, password: hashedPassword });
     await newClient.save();
 
-    res.status(201).json({ message: 'Inscription réussie. Veuillez vérifier votre e-mail.' });
+    await sendEmail(email, 'Bienvenue sur Yakalma', 'clientRegistration', { name: fullName, email, password });
+
+    res.status(201).json({ message: 'Inscription réussie. Veuillez vérifier votre e-mail pour votre mot de passe temporaire.' });
   } catch (err) {
     res.status(500).json({ message: 'Erreur du serveur', error: err.message });
   }
 };
 
 // Ajouter une adresse
-exports.addAddress = async (req, res) => {
+const addAddress = async (req, res) => {
   const { userId, address } = req.body;
 
   try {
     const client = await Client.findById(userId);
-    if (!client) return res.status(404).json({ message: 'Client non trouvé' });
+    if (!client) {
+      return res.status(404).json({ message: 'Client non trouvé' });
+    }
 
     client.addresses.push(address);
     await client.save();
@@ -34,4 +52,9 @@ exports.addAddress = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Erreur du serveur', error: err.message });
   }
+};
+
+module.exports = {
+  registerClient,
+  addAddress,
 };
