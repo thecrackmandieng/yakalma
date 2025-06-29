@@ -14,6 +14,13 @@ const clientSchema = new mongoose.Schema({
     },
   ],
   isVerified: { type: Boolean, default: false },
+
+  // ✅ Statut (active ou blocked)
+  status: {
+    type: String,
+    enum: ['active', 'blocked'],
+    default: 'active',
+  },
 });
 
 module.exports = mongoose.model('Client', clientSchema);

@@ -1,8 +1,10 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
-const { sendEmail, emailTemplates } = require("../services/email");
+const { sendEmail } = require("../services/email");
 
-// Fonction pour générer un mot de passe aléatoire
+const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
+
 function generateRandomPassword(length = 12) {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
   let password = "";
@@ -12,7 +14,49 @@ function generateRandomPassword(length = 12) {
   return password;
 }
 
-// Inscription initiale du super administrateur
+exports.loginAdmin = async (req, res) => {
+  const { emailOrPhone, password } = req.body;
+
+  if (!emailOrPhone || !password) {
+    return res.status(400).json({ message: "Email/téléphone et mot de passe requis." });
+  }
+
+  try {
+    const admin = await Admin.findOne({
+      $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
+    });
+
+    if (!admin) {
+      return res.status(401).json({ message: "Administrateur non trouvé." });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Mot de passe incorrect." });
+    }
+
+    const token = jwt.sign(
+      { userId: admin._id, role: admin.role },
+      JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.status(200).json({
+      message: "Connexion réussie.",
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+      },
+    });
+  } catch (error) {
+    console.error("Erreur lors de la connexion:", error);
+    res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
 exports.registerSuperAdmin = async (req, res) => {
   const { name, email, role } = req.body;
 
@@ -26,19 +70,18 @@ exports.registerSuperAdmin = async (req, res) => {
       return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
     }
 
-    // Générer un mot de passe aléatoire
     const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newAdmin = new Admin({ name, email, password: hashedPassword, role });
     await newAdmin.save();
 
-    // Envoyer un email de confirmation avec le mot de passe généré
     try {
       await sendEmail(
         email,
         "Confirmation d'inscription",
-        emailTemplates.adminRegistration(name, email, role, password)
+        "adminRegistration",
+        { name, email, role, password }
       );
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
@@ -51,7 +94,6 @@ exports.registerSuperAdmin = async (req, res) => {
   }
 };
 
-// Inscription d'un administrateur
 exports.registerAdmin = async (req, res) => {
   const { name, email, role } = req.body;
 
@@ -65,19 +107,18 @@ exports.registerAdmin = async (req, res) => {
       return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
     }
 
-    // Générer un mot de passe aléatoire
     const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newAdmin = new Admin({ name, email, password: hashedPassword, role });
     await newAdmin.save();
 
-    // Envoyer un email de confirmation avec le mot de passe généré
     try {
       await sendEmail(
         email,
         "Confirmation d'inscription",
-        emailTemplates.adminRegistration(name, email, role, password)
+        "adminRegistration",
+        { name, email, role, password }
       );
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
@@ -90,7 +131,6 @@ exports.registerAdmin = async (req, res) => {
   }
 };
 
-// Obtenir le profil d'un administrateur
 exports.getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.user.userId).select("-password");
@@ -104,7 +144,22 @@ exports.getAdminProfile = async (req, res) => {
   }
 };
 
-// Obtenir la liste des administrateurs (pour super admin)
+exports.deleteAdmin = async (req, res) => {
+  const adminId = req.params.id;
+
+  try {
+    const deleted = await Admin.findByIdAndDelete(adminId);
+    if (!deleted) {
+      return res.status(404).json({ message: "Administrateur non trouvé." });
+    }
+
+    res.status(200).json({ message: "Administrateur supprimé avec succès." });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de l'admin :", error);
+    res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
 exports.getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find().select("-password");

@@ -1,3 +1,4 @@
+// ✅ models/Livreur.js
 const mongoose = require('mongoose');
 
 const livreurSchema = new mongoose.Schema({
@@ -7,12 +8,11 @@ const livreurSchema = new mongoose.Schema({
   password: { type: String },
   vehicleType: { type: String, required: true },
   vehicleNumber: { type: String, required: true },
-  idCardCopy: { type: String, required: true }, // Path to the copy of the ID card
-  insuranceCopy: { type: String, required: true }, // Path to the copy of the insurance
+  idCardCopy: { type: String, required: true },
+  insuranceCopy: { type: String, required: true },
+  status: { type: String, enum: ["pending", "approved", "rejected", "blocked"], default: "pending" },
 }, {
-  timestamps: true // Adds createdAt and updatedAt fields
+  timestamps: true,
 });
 
-const Livreur = mongoose.model('Livreur', livreurSchema);
-
-module.exports = Livreur;
+module.exports = mongoose.model('Livreur', livreurSchema);

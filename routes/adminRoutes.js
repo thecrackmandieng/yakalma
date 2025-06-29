@@ -3,13 +3,13 @@ const router = express.Router();
 const adminController = require("../controllers/adminController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-// Route spéciale pour l'inscription initiale du super administrateur
-router.post(
-  "/register-super-admin",
-  adminController.registerSuperAdmin
-);
+// Route pour inscription super admin (non protégée, car initialisation)
+router.post("/register-super-admin", adminController.registerSuperAdmin);
 
-// Routes protégées
+// Route de login
+router.post("/login", adminController.loginAdmin);
+
+// Routes protégées par token et rôle
 router.post(
   "/register",
   authMiddleware.verifyToken,
@@ -20,7 +20,7 @@ router.post(
 router.get(
   "/profile",
   authMiddleware.verifyToken,
-  authMiddleware.checkRole(["Admin"]),
+  authMiddleware.checkRole(["Admin", "SuperAdmin"]),
   adminController.getAdminProfile
 );
 
@@ -29,6 +29,13 @@ router.get(
   authMiddleware.verifyToken,
   authMiddleware.checkRole(["SuperAdmin"]),
   adminController.getAllAdmins
+);
+
+router.delete(
+  "/:id",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["SuperAdmin"]),
+  adminController.deleteAdmin
 );
 
 module.exports = router;
