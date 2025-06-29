@@ -7,12 +7,23 @@ const restaurantSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   managerName: { type: String, required: true },
   password: { type: String },
-  legalDocuments: { type: String, required: true },
-  idCardCopy: { type: String, required: true }, // Chemin vers la copie de la carte d'identité
-  photo: { type: String, required: true }, // Chemin vers la photo
-  ninea: { type: String, required: true }, // NINEA
-  tradeRegister: { type: String, required: true }, // Registre de commerce
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+
+  legalDocuments: { type: String, required: true },       // 📎 Document légal
+  idCardCopy: { type: String, required: true },           // 📎 Copie carte d’identité
+  photo: { type: String, required: true },                // 📸 Photo
+  ninea: { type: String, required: true },                // 🧾 NINEA
+  tradeRegister: { type: String, required: true },        // 🧾 Registre de commerce
+
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
+
+  isBlocked: {
+    type: Boolean,
+    default: false,
+  }
 }, {
   timestamps: true
 });

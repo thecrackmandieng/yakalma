@@ -1,12 +1,10 @@
-// routes/restaurantRoutes.js
 const express = require("express");
+const router = express.Router();
 const restaurantController = require("../controllers/restaurantController");
 const authMiddleware = require("../middlewares/authMiddleware");
-const upload = require("../middlewares/upload"); // Importez le middleware upload
+const upload = require("../middlewares/upload");
 
-const router = express.Router();
-
-// Route pour l'inscription d'un restaurant
+// 📌 Enregistrement d'un restaurant
 router.post(
   "/register",
   upload.fields([
@@ -18,7 +16,7 @@ router.post(
   restaurantController.registerRestaurant
 );
 
-// Route protégée pour obtenir le profil d'un restaurant
+// 📌 Obtenir le profil (restaurant connecté)
 router.get(
   "/profile",
   authMiddleware.verifyToken,
@@ -26,11 +24,44 @@ router.get(
   restaurantController.getRestaurantProfile
 );
 
-// Route administrateur pour mettre à jour le statut d'un restaurant
+// ✅ Lister tous les restaurants (admin only)
+router.get(
+  "/all",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["Admin", "SuperAdmin"]),
+  restaurantController.getAllRestaurants
+);
+
+// ✅ Modifier un restaurant (admin only)
+router.put(
+  "/block/:id",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["Admin", "SuperAdmin"]),
+  restaurantController.updateRestaurant
+);
+
+// ✅ Supprimer un restaurant (admin only)
+router.delete(
+  "/:id",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["Admin", "SuperAdmin"]),
+  restaurantController.deleteRestaurant
+);
+
+// ✅ Bloquer un restaurant (admin only)
 router.put(
   "/status",
   authMiddleware.verifyToken,
   authMiddleware.checkRole(["admin"]),
+  restaurantController.updateRestaurantStatus // <-- est-ce bien importé ?
+);
+
+
+// ✅ Mettre à jour le statut d’un restaurant
+router.put(
+  "/status",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["Admin", "SuperAdmin"]),
   restaurantController.updateRestaurantStatus
 );
 
