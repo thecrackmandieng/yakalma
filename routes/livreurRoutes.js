@@ -58,4 +58,12 @@ router.put("/block/:id",
   livreurController.toggleBlockLivreur
 );
 
+// 🔐 Mettre à jour le statut (pending, approved, rejected)
+router.put(
+  "/status",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["Admin", "SuperAdmin"]),
+  livreurController.updateLivreurStatus
+);
+
 module.exports = router;

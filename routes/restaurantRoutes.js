@@ -16,7 +16,7 @@ router.post(
   restaurantController.registerRestaurant
 );
 
-// 📌 Obtenir le profil (restaurant connecté)
+// 📌 Obtenir le profil du restaurant connecté
 router.get(
   "/profile",
   authMiddleware.verifyToken,
@@ -24,7 +24,7 @@ router.get(
   restaurantController.getRestaurantProfile
 );
 
-// ✅ Lister tous les restaurants (admin only)
+// ✅ Lister tous les restaurants (Admin ou SuperAdmin)
 router.get(
   "/all",
   authMiddleware.verifyToken,
@@ -32,15 +32,15 @@ router.get(
   restaurantController.getAllRestaurants
 );
 
-// ✅ Modifier un restaurant (admin only)
+// ✅ Modifier un restaurant (Admin ou SuperAdmin)
 router.put(
-  "/block/:id",
+  "/update/:id",
   authMiddleware.verifyToken,
   authMiddleware.checkRole(["Admin", "SuperAdmin"]),
   restaurantController.updateRestaurant
 );
 
-// ✅ Supprimer un restaurant (admin only)
+// ✅ Supprimer un restaurant (Admin ou SuperAdmin)
 router.delete(
   "/:id",
   authMiddleware.verifyToken,
@@ -48,16 +48,7 @@ router.delete(
   restaurantController.deleteRestaurant
 );
 
-// ✅ Bloquer un restaurant (admin only)
-router.put(
-  "/status",
-  authMiddleware.verifyToken,
-  authMiddleware.checkRole(["admin"]),
-  restaurantController.updateRestaurantStatus // <-- est-ce bien importé ?
-);
-
-
-// ✅ Mettre à jour le statut d’un restaurant
+// ✅ Approuver / Rejeter / Bloquer un restaurant (Admin ou SuperAdmin)
 router.put(
   "/status",
   authMiddleware.verifyToken,
