@@ -64,53 +64,70 @@ exports.register = async (req, res) => {
 };
 // Fonction de connexion (login)
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+    const { emailOrPhone, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email et mot de passe sont requis.' });
-  }
-
-  try {
-    // Chercher l'utilisateur dans toutes les collections selon le modèle
-    let user;
-    user = await Client.findOne({ email });
-    if (!user) {
-      user = await Restaurant.findOne({ email });
-    }
-    if (!user) {
-      user = await Livreur.findOne({ email });
-    }
-    if (!user) {
-      user = await Admin.findOne({ email });
+    if (!emailOrPhone || !password) {
+        return res.status(400).json({ message: 'Email/Phone et mot de passe sont requis.' });
     }
 
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+    try {
+        // Chercher l'utilisateur dans toutes les collections selon le modèle
+        let user;
+        // Vérifier si emailOrPhone est un email ou un téléphone
+        const isEmail = emailOrPhone.includes('@');
+
+        if (isEmail) {
+            user = await Client.findOne({ email: emailOrPhone });
+            if (!user) {
+                user = await Restaurant.findOne({ email: emailOrPhone });
+            }
+            if (!user) {
+                user = await Livreur.findOne({ email: emailOrPhone });
+            }
+            if (!user) {
+                user = await Admin.findOne({ email: emailOrPhone });
+            }
+        } else {
+            user = await Client.findOne({ phone: emailOrPhone });
+            if (!user) {
+                user = await Restaurant.findOne({ phone: emailOrPhone });
+            }
+            if (!user) {
+                user = await Livreur.findOne({ phone: emailOrPhone });
+            }
+            if (!user) {
+                user = await Admin.findOne({ phone: emailOrPhone });
+            }
+        }
+
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+        }
+
+        // Vérifier si le mot de passe est correct
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Mot de passe incorrect.' });
+        }
+
+        // Créer un token JWT pour la session de l'utilisateur
+        const token = jwt.sign(
+            { userId: user._id, role: user.role },
+            process.env.SECRET_KEY || 'secretKey',
+            { expiresIn: '1h' }
+        );
+
+        res.status(200).json({
+            message: 'Connexion réussie.',
+            token,
+            user: { id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Erreur du serveur.' });
     }
-
-    // Vérifier si le mot de passe est correct
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Mot de passe incorrect.' });
-    }
-
-    // Créer un token JWT pour la session de l'utilisateur
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },  // Inclure l'ID de l'utilisateur et le rôle dans le token
-      process.env.SECRET_KEY || 'secretKey',  // Utiliser une clé secrète pour signer le JWT
-      { expiresIn: '1h' }  // Durée d'expiration du token
-    );
-
-    res.status(200).json({ 
-      message: 'Connexion réussie.', 
-      token, 
-      user: { id: user._id, name: user.name, email: user.email, role: user.role } // Inclure des informations utilisateur
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur du serveur.' });
-  }
 };
+
 // Fonction pour obtenir les détails d'un utilisateur par ID
 exports.getUserById = async (req, res) => {
   const { id } = req.params;

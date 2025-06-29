@@ -7,7 +7,7 @@ exports.registerLivreur = async (req, res) => {
   const { name, email, phone, vehicleType, vehicleNumber, password } = req.body;
 
   // Validation des champs requis
-  if (!name || !email || !phone || !vehicleType || !vehicleNumber || !password) {
+  if (!name || !email || !phone || !vehicleType || !vehicleNumber) {
     return res.status(400).json({ message: "Tous les champs sont requis." });
   }
 

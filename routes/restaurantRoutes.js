@@ -1,13 +1,24 @@
+// routes/restaurantRoutes.js
 const express = require("express");
 const restaurantController = require("../controllers/restaurantController");
 const authMiddleware = require("../middlewares/authMiddleware");
+const upload = require("../middlewares/upload"); // Importez le middleware upload
 
 const router = express.Router();
 
-// Routes publiques
-router.post("/register", restaurantController.registerRestaurant);
+// Route pour l'inscription d'un restaurant
+router.post(
+  "/register",
+  upload.fields([
+    { name: 'idCardCopy', maxCount: 1 },
+    { name: 'photo', maxCount: 1 },
+    { name: 'legalDocuments', maxCount: 1 },
+    { name: 'tradeRegister', maxCount: 1 }
+  ]),
+  restaurantController.registerRestaurant
+);
 
-// Routes protégées
+// Route protégée pour obtenir le profil d'un restaurant
 router.get(
   "/profile",
   authMiddleware.verifyToken,
@@ -15,7 +26,7 @@ router.get(
   restaurantController.getRestaurantProfile
 );
 
-// Routes administrateur
+// Route administrateur pour mettre à jour le statut d'un restaurant
 router.put(
   "/status",
   authMiddleware.verifyToken,

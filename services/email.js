@@ -30,39 +30,40 @@ const baseEmailTemplate = (title, content) => `
 
 // Templates d'emails
 const emailTemplates = {
-  adminRegistration: (name, email, role) =>
+  adminRegistration: (data) =>
     baseEmailTemplate(
-      `Bienvenue ${name} !`,
+      `Bienvenue ${data.name} !`,
       `
         <p>Votre compte administrateur a été créé avec succès sur <strong>Yakalma</strong>.</p>
         <p>Voici les détails de votre compte :</p>
         <ul style="padding-left: 20px;">
-          <li><strong>Nom :</strong> ${name}</li>
-          <li><strong>Email :</strong> ${email}</li>
-          <li><strong>Rôle :</strong> ${role}</li>
-        </ul>
-        <p>Vous pouvez dès maintenant vous connecter à la plateforme.</p>
-      `
-    ),
-
-  clientRegistration: (name, email, password) =>
-    baseEmailTemplate(
-      `Bienvenue ${name} !`,
-      `
-        <p>Votre compte a été créé avec succès sur <strong>Yakalma</strong>.</p>
-        <p>Voici les détails de votre compte :</p>
-        <ul style="padding-left: 20px;">
-          <li><strong>Nom :</strong> ${name}</li>
-          <li><strong>Email :</strong> ${email}</li>
-          <li><strong>Mot de passe temporaire :</strong> ${password}</li>
+          <li><strong>Nom :</strong> ${data.name}</li>
+          <li><strong>Email :</strong> ${data.email}</li>
+          <li><strong>Rôle :</strong> ${data.role}</li>
+          <li><strong>Mot de passe temporaire :</strong> ${data.password}</li>
         </ul>
         <p>Veuillez vous connecter et changer votre mot de passe dès que possible.</p>
       `
     ),
 
-  livreurRegistration: (name) =>
+  clientRegistration: (data) =>
     baseEmailTemplate(
-      `Inscription reçue, ${name}`,
+      `Bienvenue ${data.name} !`,
+      `
+        <p>Votre compte a été créé avec succès sur <strong>Yakalma</strong>.</p>
+        <p>Voici les détails de votre compte :</p>
+        <ul style="padding-left: 20px;">
+          <li><strong>Nom :</strong> ${data.name}</li>
+          <li><strong>Email :</strong> ${data.email}</li>
+          <li><strong>Mot de passe temporaire :</strong> ${data.password}</li>
+        </ul>
+        <p>Veuillez vous connecter et changer votre mot de passe dès que possible.</p>
+      `
+    ),
+
+  livreurRegistration: (data) =>
+    baseEmailTemplate(
+      `Inscription reçue, ${data.name}`,
       `
         <p>Nous avons bien reçu votre inscription en tant que <strong>livreur</strong>.</p>
         <p>Notre équipe va examiner votre dossier dans les plus brefs délais.</p>
@@ -70,9 +71,9 @@ const emailTemplates = {
       `
     ),
 
-  livreurApproval: (name) =>
+  livreurApproval: (data) =>
     baseEmailTemplate(
-      `Félicitations ${name} !`,
+      `Félicitations ${data.name} !`,
       `
         <p>Votre inscription en tant que <strong>livreur</strong> a été approuvée avec succès !</p>
         <p>Vous pouvez désormais vous connecter à l'application et commencer à livrer les commandes.</p>
@@ -82,14 +83,14 @@ const emailTemplates = {
 };
 
 // Service d'envoi d'email
-const sendEmail = async (to, subject, templateKey, templateData = {}) => {
+const sendEmail = async (to, subject, templateKey, templateData) => {
   try {
     if (!emailTemplates[templateKey]) {
       throw new Error(`Le template d'email "${templateKey}" est introuvable.`);
     }
 
-    const values = Object.values(templateData || {});
-    const emailContent = emailTemplates[templateKey](...values);
+    // Utilisez le templateKey pour obtenir le bon template
+    const emailContent = emailTemplates[templateKey](templateData);
 
     const mailOptions = {
       from: process.env.SMTP_FROM || '"Yakalma" <no-reply@yakalma.com>',

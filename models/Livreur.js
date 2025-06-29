@@ -4,7 +4,7 @@ const livreurSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
-  password: { type: String, required: true },
+  password: { type: String },
   vehicleType: { type: String, required: true },
   vehicleNumber: { type: String, required: true },
   idCardCopy: { type: String, required: true }, // Path to the copy of the ID card

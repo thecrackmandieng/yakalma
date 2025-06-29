@@ -6,16 +6,17 @@ const restaurantSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   managerName: { type: String, required: true },
+  password: { type: String },
   legalDocuments: { type: String, required: true },
-  isApproved: { type: Boolean, default: false },
-  menu: [
-    {
-      dishName: String,
-      description: String,
-      price: Number,
-      photoUrl: String,
-    },
-  ],
+  idCardCopy: { type: String, required: true }, // Chemin vers la copie de la carte d'identité
+  photo: { type: String, required: true }, // Chemin vers la photo
+  ninea: { type: String, required: true }, // NINEA
+  tradeRegister: { type: String, required: true }, // Registre de commerce
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model('Restaurant', restaurantSchema);
+const Restaurant = mongoose.model('Restaurant', restaurantSchema);
+
+module.exports = Restaurant;

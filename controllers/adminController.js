@@ -2,44 +2,85 @@ const bcrypt = require("bcrypt");
 const Admin = require("../models/Admin");
 const { sendEmail, emailTemplates } = require("../services/email");
 
-// Inscription d'un administrateur
-exports.registerAdmin = async (req, res) => {
-  const { name, email, password, role } = req.body;
+// Fonction pour générer un mot de passe aléatoire
+function generateRandomPassword(length = 12) {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
 
-  // Validation des champs requis
-  if (!name || !email || !password || !role) {
+// Inscription initiale du super administrateur
+exports.registerSuperAdmin = async (req, res) => {
+  const { name, email, role } = req.body;
+
+  if (!name || !email || !role) {
     return res.status(400).json({ message: "Tous les champs sont requis." });
   }
 
   try {
-    // Vérifier si un admin avec cet email existe déjà
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
-      return res
-        .status(400)
-        .json({ message: "Un administrateur avec cet email existe déjà." });
+      return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
     }
 
-    // Hacher le mot de passe
+    // Générer un mot de passe aléatoire
+    const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Création d'un nouvel administrateur avec le mot de passe haché
     const newAdmin = new Admin({ name, email, password: hashedPassword, role });
-    await newAdmin.save(); // Enregistrement dans la base de données
+    await newAdmin.save();
 
-    // Envoi de l'email de confirmation via le service
+    // Envoyer un email de confirmation avec le mot de passe généré
     try {
       await sendEmail(
         email,
         "Confirmation d'inscription",
-        emailTemplates.adminRegistration(name, email, role)
+        emailTemplates.adminRegistration(name, email, role, password)
       );
     } catch (emailError) {
-      console.error(
-        "Erreur lors de l'envoi de l'email de confirmation:",
-        emailError
+      console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
+    }
+
+    res.status(201).json({ message: "Super administrateur inscrit avec succès." });
+  } catch (error) {
+    console.error("Erreur lors de l'inscription:", error);
+    res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
+// Inscription d'un administrateur
+exports.registerAdmin = async (req, res) => {
+  const { name, email, role } = req.body;
+
+  if (!name || !email || !role) {
+    return res.status(400).json({ message: "Tous les champs sont requis." });
+  }
+
+  try {
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
+      return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
+    }
+
+    // Générer un mot de passe aléatoire
+    const password = generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newAdmin = new Admin({ name, email, password: hashedPassword, role });
+    await newAdmin.save();
+
+    // Envoyer un email de confirmation avec le mot de passe généré
+    try {
+      await sendEmail(
+        email,
+        "Confirmation d'inscription",
+        emailTemplates.adminRegistration(name, email, role, password)
       );
-      // Ne bloque pas l'inscription si l'email échoue
+    } catch (emailError) {
+      console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }
 
     res.status(201).json({ message: "Administrateur inscrit avec succès." });
