@@ -1,161 +1,167 @@
+/* controllers/authController.js */
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const jwt    = require('jsonwebtoken');
 
-// Importation des modèles utilisateur
-const Client = require('../models/Client');
+const Client     = require('../models/Client');
 const Restaurant = require('../models/Restaurant');
-const Livreur = require('../models/Livreur');
-const Admin = require('../models/Admin');
+const Livreur    = require('../models/Livreur');
+const Admin      = require('../models/Admin');
 
-// Fonction d'inscription (register)
+const JWT_SECRET = process.env.JWT_SECRET || 'secret_dev';
+
+/* ----------------------------------------------------------
+ * Middleware : vérification du token JWT
+ * ---------------------------------------------------------- */
+exports.verifyToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];          // ex : "Bearer <token>"
+  if (!authHeader) return res.status(401).json({ message: 'Token manquant.' });
+
+  const token = authHeader.split(' ')[1];                   // "<token>"
+  if (!token)   return res.status(401).json({ message: 'Format de token invalide.' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);          // { userId, role, … }
+    req.user = decoded;                                     // on attache à la requête
+    next();                                                 // OK, route protégée suivante
+  } catch (err) {
+    return res.status(401).json({ message: 'Token expiré ou invalide.' });
+  }
+};
+
+/* ----------------------------------------------------------
+ * Inscription multi‑rôles
+ * ---------------------------------------------------------- */
 exports.register = async (req, res) => {
   const { name, email, password, phone, role, address, vehicle } = req.body;
 
   if (!name || !email || !password || !role) {
-    return res.status(400).json({ message: 'Tous les champs sont requis.' });
+    return res.status(400).json({ message: 'Tous les champs requis doivent être remplis.' });
   }
 
   try {
-    // Vérifier si l'utilisateur existe déjà dans la base de données
     let existingUser;
     switch (role) {
-      case 'client':
-        existingUser = await Client.findOne({ email });
-        break;
-      case 'restaurant':
-        existingUser = await Restaurant.findOne({ email });
-        break;
-      case 'livreur':
-        existingUser = await Livreur.findOne({ email });
-        break;
-      case 'admin':
-        existingUser = await Admin.findOne({ email });
-        break;
-      default:
-        return res.status(400).json({ message: 'Rôle invalide.' });
+      case 'client':     existingUser = await Client.findOne({ email });      break;
+      case 'restaurant': existingUser = await Restaurant.findOne({ email });  break;
+      case 'livreur':    existingUser = await Livreur.findOne({ email });     break;
+      case 'admin':      existingUser = await Admin.findOne({ email });       break;
+      default:           return res.status(400).json({ message: 'Rôle invalide.' });
     }
 
     if (existingUser) {
-      return res.status(400).json({ message: 'Cet utilisateur existe déjà.' });
+      return res.status(400).json({ message: 'Utilisateur déjà existant.' });
     }
 
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Créer un nouvel utilisateur selon son rôle
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
     let newUser;
-    if (role === 'client') {
-      newUser = new Client({ name, email, phone, password: hashedPassword, role, address });
-    } else if (role === 'restaurant') {
-      newUser = new Restaurant({ name, email, phone, password: hashedPassword, role, address });
-    } else if (role === 'livreur') {
-      newUser = new Livreur({ name, email, phone, password: hashedPassword, role, vehicle });
-    } else if (role === 'admin') {
-      newUser = new Admin({ name, email, phone, password: hashedPassword, role });
+
+    switch (role) {
+      case 'client':
+        newUser = new Client({ name, email, phone, password: hashedPassword, role, address });
+        break;
+      case 'restaurant':
+        newUser = new Restaurant({ name, email, phone, password: hashedPassword, role, address });
+        break;
+      case 'livreur':
+        newUser = new Livreur({ name, email, phone, password: hashedPassword, role, vehicle });
+        break;
+      case 'admin':
+        newUser = new Admin({ name, email, phone, password: hashedPassword, role });
+        break;
     }
 
-    // Sauvegarder l'utilisateur dans la base de données
     await newUser.save();
-    res.status(201).json({ message: 'Utilisateur créé avec succès.' });
+    console.log('✅ Utilisateur créé (hash) :', hashedPassword);
+    return res.status(201).json({ message: 'Utilisateur créé avec succès.' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur du serveur.' });
+    console.error('❌ Erreur inscription :', error);
+    return res.status(500).json({ message: 'Erreur du serveur.' });
   }
 };
-// Fonction de connexion (login)
+
+/* ----------------------------------------------------------
+ * Connexion multi‑rôles
+ * ---------------------------------------------------------- */
 exports.login = async (req, res) => {
-    const { emailOrPhone, password } = req.body;
-
-    if (!emailOrPhone || !password) {
-        return res.status(400).json({ message: 'Email/Phone et mot de passe sont requis.' });
-    }
-
-    try {
-        // Chercher l'utilisateur dans toutes les collections selon le modèle
-        let user;
-        // Vérifier si emailOrPhone est un email ou un téléphone
-        const isEmail = emailOrPhone.includes('@');
-
-        if (isEmail) {
-            user = await Client.findOne({ email: emailOrPhone });
-            if (!user) {
-                user = await Restaurant.findOne({ email: emailOrPhone });
-            }
-            if (!user) {
-                user = await Livreur.findOne({ email: emailOrPhone });
-            }
-            if (!user) {
-                user = await Admin.findOne({ email: emailOrPhone });
-            }
-        } else {
-            user = await Client.findOne({ phone: emailOrPhone });
-            if (!user) {
-                user = await Restaurant.findOne({ phone: emailOrPhone });
-            }
-            if (!user) {
-                user = await Livreur.findOne({ phone: emailOrPhone });
-            }
-            if (!user) {
-                user = await Admin.findOne({ phone: emailOrPhone });
-            }
-        }
-
-        if (!user) {
-            return res.status(404).json({ message: 'Utilisateur non trouvé.' });
-        }
-
-        // Vérifier si le mot de passe est correct
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Mot de passe incorrect.' });
-        }
-
-        // Créer un token JWT pour la session de l'utilisateur
-        const token = jwt.sign(
-            { userId: user._id, role: user.role },
-            process.env.SECRET_KEY || 'secretKey',
-            { expiresIn: '1h' }
-        );
-
-        res.status(200).json({
-            message: 'Connexion réussie.',
-            token,
-            user: { id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role }
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Erreur du serveur.' });
-    }
-};
-
-// Fonction pour obtenir les détails d'un utilisateur par ID
-exports.getUserById = async (req, res) => {
-  const { id } = req.params;
+  const { emailOrPhone, password } = req.body;
+  if (!emailOrPhone || !password) {
+    return res.status(400).json({ message: 'Email/Téléphone et mot de passe requis.' });
+  }
 
   try {
-    // Rechercher l'utilisateur dans toutes les collections
-    let user;
-    user = await Client.findById(id);
+    // Recherche dans l’ensemble des collections
+    const user =
+      await Client.findOne({     $or: [{ email: emailOrPhone }, { phone: emailOrPhone }] }) ||
+      await Restaurant.findOne({ $or: [{ email: emailOrPhone }, { phone: emailOrPhone }] }) ||
+      await Livreur.findOne({    $or: [{ email: emailOrPhone }, { phone: emailOrPhone }] }) ||
+      await Admin.findOne({      $or: [{ email: emailOrPhone }, { phone: emailOrPhone }] });
+
     if (!user) {
-      user = await Restaurant.findById(id);
+      console.log('❌ Utilisateur introuvable :', emailOrPhone);
+      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
     }
-    if (!user) {
-      user = await Livreur.findById(id);
+
+    const isMatch = await bcrypt.compare(password.trim(), user.password);
+    console.log('🧪 bcrypt.compare =>', isMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Mot de passe incorrect.' });
     }
-    if (!user) {
-      user = await Admin.findById(id);
-    }
+
+    // Génération du token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role, status: user.status },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.status(200).json({
+      message: 'Connexion réussie',
+      token,
+      user: {
+        _id:    user._id,
+        name:   user.name,
+        email:  user.email,
+        phone:  user.phone,
+        role:   user.role,
+        status: user.status || null
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur login :', error);
+    return res.status(500).json({ message: 'Erreur serveur.' });
+  }
+};
+
+/* ----------------------------------------------------------
+ * Récupération d’un utilisateur par ID
+ * ---------------------------------------------------------- */
+exports.getUserById = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user =
+      await Client.findById(id)     ||
+      await Restaurant.findById(id) ||
+      await Livreur.findById(id)    ||
+      await Admin.findById(id);
 
     if (!user) {
       return res.status(404).json({ message: 'Utilisateur non trouvé.' });
     }
 
-    res.status(200).json({ 
-      message: 'Utilisateur trouvé.', 
-      user: { id: user._id, name: user.name, email: user.email, role: user.role } 
+    return res.status(200).json({
+      message: 'Utilisateur trouvé.',
+      user: {
+        id:     user._id,
+        name:   user.name,
+        email:  user.email,
+        role:   user.role,
+        phone:  user.phone,
+        status: user.status || null
+      }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur du serveur.' });
+    console.error('❌ Erreur getUserById :', error);
+    return res.status(500).json({ message: 'Erreur serveur.' });
   }
 };

@@ -1,29 +1,42 @@
 const mongoose = require('mongoose');
 
 const restaurantSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  address: { type: String, required: true },
-  phone: { type: String, required: true },
+  name: { type: String, default: '' },
+  address: { type: String, default: '' },
+  phone: { type: String, default: '' },
   email: { type: String, required: true, unique: true },
-  managerName: { type: String, required: true },
-  password: { type: String },
+  managerName: { type: String, default: '' },
+  password: { type: String, required: true },
 
-  legalDocuments: { type: String, required: true },       // 📎 Document légal
-  idCardCopy: { type: String, required: true },           // 📎 Copie carte d’identité
-  photo: { type: String, required: true },                // 📸 Photo
-  ninea: { type: String, required: true },                // 🧾 NINEA
-  tradeRegister: { type: String, required: true },        // 🧾 Registre de commerce
+  permis: { type: String, default: '' },
+  certificat: { type: String, default: '' },
+  autresDocs: { type: String, default: '' },
+  idCardCopy: { type: String, default: '' },
+  photo: { type: String, default: '' },
+  ninea: { type: String, default: '' },
+
+  role: {
+    type: String,
+    enum: ['restaurant', 'livreur', 'client', 'admin', 'superadmin'],
+    default: 'restaurant',
+  },
 
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending',
+    enum: ['incomplete', 'pending', 'approved', 'rejected', 'blocked'],
+    default: 'incomplete',
+    required: true,
   },
 
-  isBlocked: {
-    type: Boolean,
-    default: false,
-  }
+  isBlocked: { type: Boolean, default: false },
+
+  // ✅ Nouveau champ pour la relation avec les plats
+  menu: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'MenuItem'
+    }
+  ]
 }, {
   timestamps: true
 });

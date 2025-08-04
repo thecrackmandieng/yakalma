@@ -14,6 +14,7 @@ function generateRandomPassword(length = 12) {
   return password;
 }
 
+// Connexion Admin
 exports.loginAdmin = async (req, res) => {
   const { emailOrPhone, password } = req.body;
 
@@ -57,6 +58,7 @@ exports.loginAdmin = async (req, res) => {
   }
 };
 
+// Inscription Super Admin
 exports.registerSuperAdmin = async (req, res) => {
   const { name, email, role } = req.body;
 
@@ -94,6 +96,7 @@ exports.registerSuperAdmin = async (req, res) => {
   }
 };
 
+// Inscription Admin normal
 exports.registerAdmin = async (req, res) => {
   const { name, email, role } = req.body;
 
@@ -131,6 +134,7 @@ exports.registerAdmin = async (req, res) => {
   }
 };
 
+// Récupérer profil admin
 exports.getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.user.userId).select("-password");
@@ -144,6 +148,65 @@ exports.getAdminProfile = async (req, res) => {
   }
 };
 
+// Modifier profil admin
+exports.updateAdminProfile = async (req, res) => {
+  try {
+    const adminId = req.user.userId;
+    const { name, email, phone } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ message: "Le nom et l'email sont requis." });
+    }
+
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      adminId,
+      { name, email, phone },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ message: "Administrateur non trouvé." });
+    }
+
+    res.status(200).json({ message: "Profil mis à jour avec succès.", admin: updatedAdmin });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du profil:", error);
+    res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
+// Changer mot de passe admin
+exports.changePasswordAdmin = async (req, res) => {
+  try {
+    const adminId = req.user.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Ancien et nouveau mot de passe requis." });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Administrateur non trouvé." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Ancien mot de passe incorrect." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    admin.password = hashedPassword;
+    await admin.save();
+
+    res.status(200).json({ message: "Mot de passe modifié avec succès." });
+  } catch (error) {
+    console.error("Erreur lors du changement de mot de passe :", error);
+    res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
+// Supprimer un admin
 exports.deleteAdmin = async (req, res) => {
   const adminId = req.params.id;
 
@@ -160,12 +223,40 @@ exports.deleteAdmin = async (req, res) => {
   }
 };
 
+// Récupérer tous les admins
 exports.getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find().select("-password");
     res.status(200).json({ admins });
   } catch (error) {
     console.error("Erreur lors de la récupération des administrateurs:", error);
+    res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
+// Modifier un admin (par superadmin)
+exports.updateAdmin = async (req, res) => {
+  const adminId = req.params.id;
+  const { name, email, role, phone } = req.body;
+
+  if (!name || !email ) {
+    return res.status(400).json({ message: "Tous les champs sont requis." });
+  }
+
+  try {
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      adminId,
+      { name, email, role, phone },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ message: "Administrateur non trouvé." });
+    }
+
+    res.status(200).json({ message: "Administrateur mis à jour avec succès.", admin: updatedAdmin });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de l'admin :", error);
     res.status(500).json({ message: "Erreur du serveur." });
   }
 };

@@ -1,16 +1,46 @@
 const mongoose = require('mongoose');
 
 const adminSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true }, // Ajout du champ `password`
-  role: { 
-    type: String, 
-    enum: ['Admin', 'SuperAdmin'], // Définir les valeurs valides pour `role`
-    required: true 
+  name: {
+    type: String,
+    required: true,
+    trim: true,
   },
+
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+
+  password: {
+    type: String,
+    required: true,
+    minlength: 6,
+  },
+
+  role: {
+    type: String,
+    enum: ['Admin', 'SuperAdmin'],
+    required: true,
+    default: 'Admin',
+  },
+
+  phone: {
+    type: String,
+    default: '',
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  }
 });
 
+// Crée le modèle Admin
 const Admin = mongoose.model('Admin', adminSchema);
 
+// Export du modèle
 module.exports = Admin;

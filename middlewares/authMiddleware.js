@@ -34,3 +34,12 @@ exports.checkRole = (roles) => {
     }
   };
 };
+
+exports.verifyLivreurRole = (req, res, next) => {
+  if (req.user && req.user.role === 'livreur') {
+    next();
+  } else {
+    res.status(403).json({ message: "Accès refusé : rôle livreur requis." });
+  }
+};
+
