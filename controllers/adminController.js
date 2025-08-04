@@ -79,12 +79,12 @@ exports.registerSuperAdmin = async (req, res) => {
     await newAdmin.save();
 
     try {
-      await sendEmail(
-        email,
-        "Confirmation d'inscription",
-        "adminRegistration",
-        { name, email, role, password }
-      );
+    await sendEmail(
+  email,
+  "adminRegistration",
+  { name, email, role, password }
+);
+
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }
@@ -117,12 +117,12 @@ exports.registerAdmin = async (req, res) => {
     await newAdmin.save();
 
     try {
-      await sendEmail(
-        email,
-        "Confirmation d'inscription",
-        "adminRegistration",
-        { name, email, role, password }
-      );
+     await sendEmail(
+  email,
+  "adminRegistration",
+  { name, email, role, password }
+);
+
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }

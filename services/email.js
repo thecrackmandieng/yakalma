@@ -1,9 +1,9 @@
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 
-// ✅ Transporteur SMTP via Gmail (ou autre si configuré)
+// ✅ Transporteur SMTP
 const transporter = nodemailer.createTransport({
-  service: "gmail", // ou 'smtp.mailtrap.io', 'hotmail', etc.
+  service: "gmail", // ou smtp.mailtrap.io, etc.
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -30,6 +30,24 @@ const baseEmailTemplate = (title, content) => `
 
 // ✅ Templates d’emails
 const emailTemplates = {
+  // --- ADMIN ---
+  adminRegistration: (data) =>
+    baseEmailTemplate(
+      `Bienvenue ${data.name || data.email} !`,
+      `
+        <p>Votre compte administrateur a été créé avec succès.</p>
+        <p>Voici vos identifiants :</p>
+        <ul>
+          <li><strong>Email :</strong> ${data.email}</li>
+          <li><strong>Mot de passe temporaire :</strong></li>
+        </ul>
+        <pre style="font-weight: bold; font-size: 18px; background: #eee; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-word;">
+${data.password}
+        </pre>
+        <p>Merci de le changer dès votre première connexion.</p>
+      `
+    ),
+
   // --- CLIENT ---
   clientRegistration: (data) =>
     baseEmailTemplate(
@@ -37,7 +55,7 @@ const emailTemplates = {
       `
         <p>Votre compte a été créé avec succès sur <strong>Yakalma</strong>.</p>
         <p>Voici votre mot de passe temporaire :</p>
-        <pre style="font-weight: bold; font-size: 18px; background: #eee; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-word;">
+        <pre style="font-weight: bold; font-size: 18px; background: #eee; padding: 10px; border-radius: 5px;">
 ${data.password}
         </pre>
         <p>Merci de le changer dès votre première connexion.</p>
@@ -80,7 +98,7 @@ ${data.password}
       `
         <p>Votre compte restaurant a été créé sur <strong>Yakalma</strong>.</p>
         <p>Mot de passe temporaire :</p>
-        <pre style="font-weight: bold; font-size: 18px; background: #eee; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-word;">
+        <pre style="font-weight: bold; font-size: 18px; background: #eee; padding: 10px; border-radius: 5px;">
 ${data.password}
         </pre>
         <p>Merci de le changer dès votre première connexion.</p>
@@ -119,6 +137,9 @@ ${data.password}
 
 // ✅ Sujets d'emails
 const emailSubjects = {
+  // ADMIN
+  adminRegistration: "Votre compte administrateur Yakalma",
+
   // CLIENT
   clientRegistration: "Votre mot de passe pour finaliser votre inscription",
 
@@ -134,7 +155,7 @@ const emailSubjects = {
   restaurantRejected: "Inscription restaurant rejetée",
 };
 
-// ✅ Fonction d'envoi d’email
+// ✅ Fonction d’envoi d’email
 const sendEmail = async (to, templateKey, templateData) => {
   try {
     const templateFn = emailTemplates[templateKey];
