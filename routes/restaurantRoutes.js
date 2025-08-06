@@ -44,8 +44,6 @@ router.post(
 // ========== AUTH - PROFIL RESTAURANT ==========
 router.get(
   "/profile",
-  authMiddleware.verifyToken,
-  authMiddleware.checkRole(["restaurant"]),
   restaurantController.getRestaurantProfile
 );
 
