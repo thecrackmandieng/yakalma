@@ -13,13 +13,22 @@ function generateRandomPassword(length = 10) {
 
 // Helper : upload vers Cloudinary
 const uploadToCloudinary = async (file, folder, publicId) => {
-  const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-  const result = await cloudinary.uploader.upload(base64, {
-    folder,
-    public_id: publicId,
-    resource_type: "auto"
-  });
-  return result.secure_url;
+  if (!file || !file.buffer) {
+    throw new Error('Fichier invalide ou buffer manquant');
+  }
+  
+  try {
+    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    const result = await cloudinary.uploader.upload(base64, {
+      folder,
+      public_id: publicId,
+      resource_type: "auto"
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Erreur upload Cloudinary:', error);
+    throw new Error(`Erreur lors de l'upload vers Cloudinary: ${error.message}`);
+  }
 };
 
 // ==========================
@@ -352,17 +361,28 @@ const updateRestaurantProfile = async (req, res) => {
     if (email) restaurant.email = email;
     if (phone) restaurant.phone = phone;
 
-    if (req.files?.permis) restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
-    if (req.files?.certificat) restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
-    if (req.files?.autresDocs) restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
-    if (req.files?.idCardCopy) restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
-    if (req.files?.photo) restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
+    // Upload fichiers uniquement s'ils sont fournis
+    if (req.files?.permis?.[0]) {
+      restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
+    }
+    if (req.files?.certificat?.[0]) {
+      restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
+    }
+    if (req.files?.autresDocs?.[0]) {
+      restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
+    }
+    if (req.files?.idCardCopy?.[0]) {
+      restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
+    }
+    if (req.files?.photo?.[0]) {
+      restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
+    }
 
     await restaurant.save();
     res.status(200).json({ message: "Profil mis à jour avec succès", restaurant });
   } catch (err) {
     console.error("Erreur updateRestaurantProfile:", err);
-    res.status(500).json({ message: "Erreur serveur" });
+    res.status(500).json({ message: err.message || "Erreur serveur" });
   }
 };
 
