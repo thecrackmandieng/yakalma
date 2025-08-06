@@ -11,20 +11,36 @@ function generateRandomPassword(length = 10) {
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// Helper : upload vers Cloudinary
+// Helper : upload vers Cloudinary - compatible avec CloudinaryStorage et fichiers locaux
 const uploadToCloudinary = async (file, folder, publicId) => {
-  if (!file || !file.buffer) {
-    throw new Error('Fichier invalide ou buffer manquant');
+  if (!file) {
+    throw new Error('Fichier manquant');
   }
-  
+
   try {
-    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    const result = await cloudinary.uploader.upload(base64, {
-      folder,
-      public_id: publicId,
-      resource_type: "auto"
-    });
-    return result.secure_url;
+    // Si le fichier a déjà une URL Cloudinary (via CloudinaryStorage)
+    if (file.secure_url || file.url) {
+      return file.secure_url || file.url;
+    }
+
+    // Si le fichier a un path (via CloudinaryStorage)
+    if (file.path) {
+      return file.path;
+    }
+
+    // Si le fichier a un buffer (via multer local)
+    if (file.buffer) {
+      const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      const result = await cloudinary.uploader.upload(base64, {
+        folder,
+        public_id: publicId,
+        resource_type: "auto"
+      });
+      return result.secure_url;
+    }
+
+    // Si aucun des cas ci-dessus ne correspond
+    throw new Error('Format de fichier non supporté');
   } catch (error) {
     console.error('Erreur upload Cloudinary:', error);
     throw new Error(`Erreur lors de l'upload vers Cloudinary: ${error.message}`);
