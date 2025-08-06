@@ -138,6 +138,14 @@ router.delete(
   authMiddleware.checkRole(["restaurant"]),
   restaurantController.deleteMenuItem
 );
+
+router.put(
+  "/menu/:id",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["restaurant"]),
+  upload.single("image"),
+  restaurantController.updateMenuItem
+);
 // --- Ajout de la route pour récupérer un restaurant par ID ---
 router.get(
   "/:id",

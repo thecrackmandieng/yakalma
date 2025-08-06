@@ -358,6 +358,47 @@ const deleteMenuItem = async (req, res) => {
   }
 };
 
+const updateMenuItem = async (req, res) => {
+  const { id } = req.params;
+  const { name, description, price } = req.body;
+  const file = req.file || (req.files?.image ? req.files.image[0] : null);
+
+  try {
+    const menuItem = await MenuItem.findById(id);
+    if (!menuItem) return res.status(404).json({ message: 'Plat non trouvé.' });
+
+    // Vérifier que le plat appartient au restaurant connecté
+    if (menuItem.restaurantId.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Non autorisé à modifier ce plat.' });
+    }
+
+    // Mettre à jour les champs
+    if (name) menuItem.name = name;
+    if (description) menuItem.description = description;
+    if (price) menuItem.price = parseFloat(price);
+    
+    // Mettre à jour l'image si un nouveau fichier est fourni
+    if (file) {
+      menuItem.image = file.path;
+    }
+
+    await menuItem.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Plat mis à jour avec succès.',
+      menuItem
+    });
+  } catch (error) {
+    console.error('Erreur updateMenuItem:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la mise à jour du plat.',
+      error: error.message
+    });
+  }
+};
+
 // ==========================
 // ✅ Mise à jour profil / mot de passe
 // ==========================
@@ -441,4 +482,5 @@ module.exports = {
   updateRestaurantProfile,
   changePassword,
   getRestaurantById,
+  updateMenuItem,
 };
