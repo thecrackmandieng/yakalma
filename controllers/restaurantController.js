@@ -1,10 +1,9 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const fs = require("fs");
-const path = require("path");
 const Restaurant = require("../models/Restaurant");
 const MenuItem = require("../models/MenuItem");
 const emailService = require("../services/email");
+const cloudinary = require("../config/cloudinary");
 
 // 🔐 Génère un mot de passe aléatoire
 function generateRandomPassword(length = 10) {
@@ -12,7 +11,20 @@ function generateRandomPassword(length = 10) {
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+// Helper : upload vers Cloudinary
+const uploadToCloudinary = async (file, folder, publicId) => {
+  const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+  const result = await cloudinary.uploader.upload(base64, {
+    folder,
+    public_id: publicId,
+    resource_type: "auto"
+  });
+  return result.secure_url;
+};
+
+// ==========================
 // ✅ Pré-inscription
+// ==========================
 const preRegisterRestaurant = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "L'email est requis." });
@@ -47,7 +59,9 @@ const preRegisterRestaurant = async (req, res) => {
   }
 };
 
+// ==========================
 // ✅ Enregistrement des infos du restaurant
+// ==========================
 const registerRestaurant = async (req, res) => {
   const { name, address, phone, email, managerName, ninea } = req.body;
 
@@ -67,12 +81,12 @@ const registerRestaurant = async (req, res) => {
     restaurant.managerName = managerName;
     restaurant.ninea = ninea;
 
-    // Fichiers
-    restaurant.permis = req.files.permis[0].path;
-    restaurant.certificat = req.files.certificat[0].path;
-    restaurant.autresDocs = req.files.autresDocs[0].path;
-    restaurant.idCardCopy = req.files.idCardCopy[0].path;
-    restaurant.photo = req.files.photo[0].path;
+    // Upload fichiers vers Cloudinary
+    restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
+    restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
+    restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
+    restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
+    restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
 
     restaurant.status = "pending";
     await restaurant.save();
@@ -90,7 +104,9 @@ const registerRestaurant = async (req, res) => {
   }
 };
 
+// ==========================
 // ✅ Connexion
+// ==========================
 const loginRestaurant = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ message: "Email et mot de passe requis." });
@@ -102,9 +118,7 @@ const loginRestaurant = async (req, res) => {
     const isMatch = await bcrypt.compare(password.trim(), restaurant.password);
     if (!isMatch) return res.status(401).json({ message: "Mot de passe incorrect." });
 
-    if (restaurant.isBlocked) {
-      return res.status(403).json({ message: "Compte bloqué. Contactez le support." });
-    }
+    if (restaurant.isBlocked) return res.status(403).json({ message: "Compte bloqué. Contactez le support." });
 
     const token = jwt.sign(
       { userId: restaurant._id, role: "restaurant", status: restaurant.status },
@@ -127,6 +141,10 @@ const loginRestaurant = async (req, res) => {
     res.status(500).json({ message: "Erreur serveur." });
   }
 };
+
+// ==========================
+// ✅ Récupérer le profil du restaurant par ID
+// ==========================
 // Récupérer un restaurant par ID (sans le mot de passe)
 const getRestaurantById = async (req, res) => {
   const { id } = req.params;
@@ -140,8 +158,9 @@ const getRestaurantById = async (req, res) => {
   }
 };
 
-
-// ✅ Récupérer le profil
+// ==========================
+// ✅ Récupérer profil restaurant
+// ==========================
 const getRestaurantProfile = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.user.userId).select("-password");
@@ -152,10 +171,11 @@ const getRestaurantProfile = async (req, res) => {
   }
 };
 
+// ==========================
 // ✅ Mise à jour statut (admin)
+// ==========================
 const updateRestaurantStatus = async (req, res) => {
   const { restaurantId, status } = req.body;
-
   if (!["pending", "approved", "rejected", "blocked", "incomplete"].includes(status)) {
     return res.status(400).json({ message: "Statut invalide." });
   }
@@ -168,11 +188,8 @@ const updateRestaurantStatus = async (req, res) => {
     await restaurant.save();
 
     try {
-      if (status === "approved") {
-        await emailService.sendEmail(restaurant.email, "restaurantApproved", { name: restaurant.name });
-      } else if (status === "rejected") {
-        await emailService.sendEmail(restaurant.email, "restaurantRejected", { name: restaurant.name });
-      }
+      if (status === "approved") await emailService.sendEmail(restaurant.email, "restaurantApproved", { name: restaurant.name });
+      else if (status === "rejected") await emailService.sendEmail(restaurant.email, "restaurantRejected", { name: restaurant.name });
     } catch (err) {
       console.error("❌ Email non envoyé (status):", err.message);
     }
@@ -183,7 +200,9 @@ const updateRestaurantStatus = async (req, res) => {
   }
 };
 
-// ✅ Lister tous les restaurants
+// ==========================
+// ✅ Tous les restaurants
+// ==========================
 const getAllRestaurants = async (req, res) => {
   try {
     const restaurants = await Restaurant.find().select("-password");
@@ -193,7 +212,9 @@ const getAllRestaurants = async (req, res) => {
   }
 };
 
+// ==========================
 // ✅ Modifier restaurant
+// ==========================
 const updateRestaurant = async (req, res) => {
   const { id } = req.params;
 
@@ -201,17 +222,18 @@ const updateRestaurant = async (req, res) => {
     const restaurant = await Restaurant.findById(id);
     if (!restaurant) return res.status(404).json({ message: "Restaurant non trouvé." });
 
-    if (req.body.name) restaurant.name = req.body.name;
-    if (req.body.phone) restaurant.phone = req.body.phone;
-    if (req.body.address) restaurant.address = req.body.address;
-    if (req.body.managerName) restaurant.managerName = req.body.managerName;
-    if (req.body.ninea) restaurant.ninea = req.body.ninea;
+    const { name, phone, address, managerName, ninea } = req.body;
+    if (name) restaurant.name = name;
+    if (phone) restaurant.phone = phone;
+    if (address) restaurant.address = address;
+    if (managerName) restaurant.managerName = managerName;
+    if (ninea) restaurant.ninea = ninea;
 
-    if (req.files?.permis?.[0]) restaurant.permis = req.files.permis[0].path;
-    if (req.files?.certificat?.[0]) restaurant.certificat = req.files.certificat[0].path;
-    if (req.files?.autresDocs?.[0]) restaurant.autresDocs = req.files.autresDocs[0].path;
-    if (req.files?.idCardCopy?.[0]) restaurant.idCardCopy = req.files.idCardCopy[0].path;
-    if (req.files?.photo?.[0]) restaurant.photo = req.files.photo[0].path;
+    if (req.files?.permis?.[0]) restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
+    if (req.files?.certificat?.[0]) restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
+    if (req.files?.autresDocs?.[0]) restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
+    if (req.files?.idCardCopy?.[0]) restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
+    if (req.files?.photo?.[0]) restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
 
     await restaurant.save();
     res.status(200).json({ message: "Restaurant mis à jour avec succès", restaurant });
@@ -221,11 +243,12 @@ const updateRestaurant = async (req, res) => {
   }
 };
 
-// ✅ Supprimer restaurant
+// ==========================
+// ✅ Supprimer / Bloquer / Débloquer
+// ==========================
 const deleteRestaurant = async (req, res) => {
-  const { id } = req.params;
   try {
-    const deleted = await Restaurant.findByIdAndDelete(id);
+    const deleted = await Restaurant.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Restaurant non trouvé." });
     res.status(200).json({ message: "Restaurant supprimé." });
   } catch (error) {
@@ -233,11 +256,9 @@ const deleteRestaurant = async (req, res) => {
   }
 };
 
-// ✅ Bloquer / débloquer
 const toggleBlockRestaurant = async (req, res) => {
-  const { id } = req.params;
   try {
-    const restaurant = await Restaurant.findById(id);
+    const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) return res.status(404).json({ message: "Restaurant introuvable." });
 
     restaurant.isBlocked = !restaurant.isBlocked;
@@ -249,39 +270,34 @@ const toggleBlockRestaurant = async (req, res) => {
   }
 };
 
-// ✅ Récupérer le menu
+// ==========================
+// ✅ Gestion menu
+// ==========================
 const getRestaurantMenu = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.user.userId).populate('menu');
     if (!restaurant) return res.status(404).json({ message: 'Restaurant non trouvé.' });
-
     res.status(200).json({ menu: restaurant.menu || [] });
   } catch (error) {
     console.error('Erreur getRestaurantMenu:', error);
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
-// ✅ Ajouter un plat au menu
+
 const addMenuItem = async (req, res) => {
   const { name, description, price } = req.body;
   const file = req.file || (req.files?.image ? req.files.image[0] : null);
-  if (!name || !description || !price || !file)
-    return res.status(400).json({ message: 'Tous les champs sont requis.' });
+  if (!name || !description || !price || !file) return res.status(400).json({ message: 'Tous les champs sont requis.' });
 
   try {
-    const restaurantId = req.user.userId;  // Récupérer ID restaurant connecté
+    const restaurantId = req.user.userId;
     if (!restaurantId) return res.status(401).json({ message: "Non autorisé." });
 
-    const menuItem = new MenuItem({
-      name,
-      description,
-      price,
-      image: file.path,
-      restaurantId  // On lie le menu au restaurant
-    });
+    const imageUrl = await uploadToCloudinary(file, "restaurants/menu", name);
+
+    const menuItem = new MenuItem({ name, description, price, image: imageUrl, restaurantId });
     await menuItem.save();
 
-    // Ajouter l'id du menu à la liste des menus du restaurant
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) return res.status(404).json({ message: 'Restaurant non trouvé.' });
 
@@ -294,22 +310,50 @@ const addMenuItem = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
+
+const getMenuByRestaurantId = async (req, res) => {
+  try {
+    const menuItems = await MenuItem.find({ restaurantId: req.params.restaurantId });
+    res.status(200).json({ menu: menuItems });
+  } catch (error) {
+    console.error('Erreur getMenuByRestaurantId:', error);
+    res.status(500).json({ message: 'Erreur serveur.' });
+  }
+};
+
+const deleteMenuItem = async (req, res) => {
+  try {
+    const menuItem = await MenuItem.findById(req.params.id);
+    if (!menuItem) return res.status(404).json({ message: 'Plat non trouvé.' });
+
+    await MenuItem.findByIdAndDelete(req.params.id);
+    await Restaurant.findByIdAndUpdate(req.user.userId, { $pull: { menu: req.params.id } });
+
+    res.status(200).json({ message: 'Plat supprimé.' });
+  } catch (error) {
+    console.error('Erreur deleteMenuItem:', error);
+    res.status(500).json({ message: 'Erreur serveur.' });
+  }
+};
+
+// ==========================
+// ✅ Mise à jour profil / mot de passe
+// ==========================
 const updateRestaurantProfile = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.user.userId);
     if (!restaurant) return res.status(404).json({ message: "Restaurant non trouvé." });
 
     const { managerName, email, phone } = req.body;
-
     if (managerName) restaurant.managerName = managerName;
     if (email) restaurant.email = email;
     if (phone) restaurant.phone = phone;
 
-    if (req.files?.permis) restaurant.permis = req.files.permis[0].path;
-    if (req.files?.certificat) restaurant.certificat = req.files.certificat[0].path;
-    if (req.files?.autresDocs) restaurant.autresDocs = req.files.autresDocs[0].path;
-    if (req.files?.idCardCopy) restaurant.idCardCopy = req.files.idCardCopy[0].path;
-    if (req.files?.photo) restaurant.photo = req.files.photo[0].path;
+    if (req.files?.permis) restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
+    if (req.files?.certificat) restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
+    if (req.files?.autresDocs) restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
+    if (req.files?.idCardCopy) restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
+    if (req.files?.photo) restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
 
     await restaurant.save();
     res.status(200).json({ message: "Profil mis à jour avec succès", restaurant });
@@ -319,13 +363,9 @@ const updateRestaurantProfile = async (req, res) => {
   }
 };
 
-
-// ✅ Changer le mot de passe
 const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-
-  if (!currentPassword || !newPassword)
-    return res.status(400).json({ message: "Les deux mots de passe sont requis." });
+  if (!currentPassword || !newPassword) return res.status(400).json({ message: "Les deux mots de passe sont requis." });
 
   try {
     const restaurant = await Restaurant.findById(req.user.userId);
@@ -334,8 +374,7 @@ const changePassword = async (req, res) => {
     const isMatch = await bcrypt.compare(currentPassword, restaurant.password);
     if (!isMatch) return res.status(401).json({ message: "Mot de passe actuel incorrect." });
 
-    const hashedNew = await bcrypt.hash(newPassword, 10);
-    restaurant.password = hashedNew;
+    restaurant.password = await bcrypt.hash(newPassword, 10);
     await restaurant.save();
 
     res.status(200).json({ message: "Mot de passe modifié avec succès." });
@@ -345,41 +384,9 @@ const changePassword = async (req, res) => {
   }
 };
 
-const getMenuByRestaurantId = async (req, res) => {
-  const { restaurantId } = req.params;
-
-  try {
-    const menuItems = await MenuItem.find({ restaurantId });
-
-    res.status(200).json({ menu: menuItems });
-  } catch (error) {
-    console.error('Erreur getMenuByRestaurantId:', error);
-    res.status(500).json({ message: 'Erreur serveur.' });
-  }
-};
-
-
-
-// ✅ Supprimer un plat
-const deleteMenuItem = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const menuItem = await MenuItem.findById(id);
-    if (!menuItem) return res.status(404).json({ message: 'Plat non trouvé.' });
-
-    if (fs.existsSync(menuItem.image)) fs.unlinkSync(menuItem.image);
-
-    await MenuItem.findByIdAndDelete(id);
-    await Restaurant.findByIdAndUpdate(req.user.userId, { $pull: { menu: id } });
-
-    res.status(200).json({ message: 'Plat supprimé.' });
-  } catch (error) {
-    console.error('Erreur deleteMenuItem:', error);
-    res.status(500).json({ message: 'Erreur serveur.' });
-  }
-};
-
+// ==========================
 // ✅ Exports
+// ==========================
 module.exports = {
   preRegisterRestaurant,
   registerRestaurant,
@@ -387,7 +394,6 @@ module.exports = {
   getRestaurantProfile,
   updateRestaurantStatus,
   getAllRestaurants,
-  getRestaurantById,
   updateRestaurant,
   deleteRestaurant,
   toggleBlockRestaurant,
@@ -397,4 +403,5 @@ module.exports = {
   deleteMenuItem,
   updateRestaurantProfile,
   changePassword,
+  getRestaurantById,
 };

@@ -1,33 +1,30 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+// middleware/upload.js
+const multer = require("multer");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 
-// Créer le dossier 'uploads' s'il n'existe pas
-const uploadDir = 'uploads/';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-// Configuration du stockage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
+// Configuration du stockage Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    // Créer un dossier dynamique selon le champ (ex: permis, certificat, etc.)
+    return {
+      folder: "yakalma/" + file.fieldname,
+      allowed_formats: ["jpg", "jpeg", "png", "pdf"],
+      public_id: `${file.fieldname}-${Date.now()}`,
+    };
   },
-  filename: function (req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
 });
 
 const upload = multer({ storage });
 
-// Ici on précise les champs fichiers attendus côté backend,
-// en mettant les mêmes noms que ceux dans le formulaire HTML Angular
+// Définir les champs multiples comme tu l'avais fait
 const uploadFields = upload.fields([
-  { name: 'permis', maxCount: 1 },
-  { name: 'certificat', maxCount: 1 },
-  { name: 'autresDocs', maxCount: 1 },
-  { name: 'idCardCopy', maxCount: 1 }, // Ajout du champ idCardCopy
-  { name: 'photo', maxCount: 1 } // Ajout du champ insuranceCopy pour les livreurs
+  { name: "permis", maxCount: 1 },
+  { name: "certificat", maxCount: 1 },
+  { name: "autresDocs", maxCount: 1 },
+  { name: "idCardCopy", maxCount: 1 },
+  { name: "photo", maxCount: 1 },
 ]);
 
 module.exports = uploadFields;
