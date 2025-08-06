@@ -1,15 +1,27 @@
 const express = require("express");
 const multer = require("multer");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 const router = express.Router();
 const restaurantController = require("../controllers/restaurantController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-// 📂 Multer configuration pour upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) =>
-    cb(null, `${file.fieldname}-${Date.now()}-${file.originalname}`)
+// 📂 Configuration CloudinaryStorage pour upload automatique vers Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const folderName = "yakalma/restaurants";
+    const fieldName = file.fieldname;
+    
+    return {
+      folder: `${folderName}/${fieldName}`,
+      allowed_formats: ["jpg", "jpeg", "png", "pdf", "webp"],
+      public_id: `${fieldName}-${Date.now()}`,
+      resource_type: "auto"
+    };
+  },
 });
+
 const upload = multer({ storage });
 
 // ========== PHASE 1: Préinscription ==========

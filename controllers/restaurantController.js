@@ -11,40 +11,14 @@ function generateRandomPassword(length = 10) {
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// Helper : upload vers Cloudinary - compatible avec CloudinaryStorage et fichiers locaux
-const uploadToCloudinary = async (file, folder, publicId) => {
+// Helper : récupère l'URL Cloudinary depuis le fichier uploadé
+const getCloudinaryUrl = (file) => {
   if (!file) {
     throw new Error('Fichier manquant');
   }
-
-  try {
-    // Si le fichier a déjà une URL Cloudinary (via CloudinaryStorage)
-    if (file.secure_url || file.url) {
-      return file.secure_url || file.url;
-    }
-
-    // Si le fichier a un path (via CloudinaryStorage)
-    if (file.path) {
-      return file.path;
-    }
-
-    // Si le fichier a un buffer (via multer local)
-    if (file.buffer) {
-      const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-      const result = await cloudinary.uploader.upload(base64, {
-        folder,
-        public_id: publicId,
-        resource_type: "auto"
-      });
-      return result.secure_url;
-    }
-
-    // Si aucun des cas ci-dessus ne correspond
-    throw new Error('Format de fichier non supporté');
-  } catch (error) {
-    console.error('Erreur upload Cloudinary:', error);
-    throw new Error(`Erreur lors de l'upload vers Cloudinary: ${error.message}`);
-  }
+  
+  // Avec CloudinaryStorage, le fichier a déjà l'URL dans file.path
+  return file.path;
 };
 
 // ==========================
@@ -106,12 +80,12 @@ const registerRestaurant = async (req, res) => {
     restaurant.managerName = managerName;
     restaurant.ninea = ninea;
 
-    // Upload fichiers vers Cloudinary
-    restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
-    restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
-    restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
-    restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
-    restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
+    // Les fichiers sont automatiquement uploadés vers Cloudinary via CloudinaryStorage
+    restaurant.permis = getCloudinaryUrl(req.files.permis[0]);
+    restaurant.certificat = getCloudinaryUrl(req.files.certificat[0]);
+    restaurant.autresDocs = getCloudinaryUrl(req.files.autresDocs[0]);
+    restaurant.idCardCopy = getCloudinaryUrl(req.files.idCardCopy[0]);
+    restaurant.photo = getCloudinaryUrl(req.files.photo[0]);
 
     restaurant.status = "pending";
     await restaurant.save();
@@ -254,11 +228,11 @@ const updateRestaurant = async (req, res) => {
     if (managerName) restaurant.managerName = managerName;
     if (ninea) restaurant.ninea = ninea;
 
-    if (req.files?.permis?.[0]) restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
-    if (req.files?.certificat?.[0]) restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
-    if (req.files?.autresDocs?.[0]) restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
-    if (req.files?.idCardCopy?.[0]) restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
-    if (req.files?.photo?.[0]) restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
+    if (req.files?.permis?.[0]) restaurant.permis = getCloudinaryUrl(req.files.permis[0]);
+    if (req.files?.certificat?.[0]) restaurant.certificat = getCloudinaryUrl(req.files.certificat[0]);
+    if (req.files?.autresDocs?.[0]) restaurant.autresDocs = getCloudinaryUrl(req.files.autresDocs[0]);
+    if (req.files?.idCardCopy?.[0]) restaurant.idCardCopy = getCloudinaryUrl(req.files.idCardCopy[0]);
+    if (req.files?.photo?.[0]) restaurant.photo = getCloudinaryUrl(req.files.photo[0]);
 
     await restaurant.save();
     res.status(200).json({ message: "Restaurant mis à jour avec succès", restaurant });
@@ -377,21 +351,21 @@ const updateRestaurantProfile = async (req, res) => {
     if (email) restaurant.email = email;
     if (phone) restaurant.phone = phone;
 
-    // Upload fichiers uniquement s'ils sont fournis
+    // Les fichiers sont automatiquement uploadés vers Cloudinary via CloudinaryStorage
     if (req.files?.permis?.[0]) {
-      restaurant.permis = await uploadToCloudinary(req.files.permis[0], "restaurants/documents", "permis");
+      restaurant.permis = getCloudinaryUrl(req.files.permis[0]);
     }
     if (req.files?.certificat?.[0]) {
-      restaurant.certificat = await uploadToCloudinary(req.files.certificat[0], "restaurants/documents", "certificat");
+      restaurant.certificat = getCloudinaryUrl(req.files.certificat[0]);
     }
     if (req.files?.autresDocs?.[0]) {
-      restaurant.autresDocs = await uploadToCloudinary(req.files.autresDocs[0], "restaurants/documents", "autresDocs");
+      restaurant.autresDocs = getCloudinaryUrl(req.files.autresDocs[0]);
     }
     if (req.files?.idCardCopy?.[0]) {
-      restaurant.idCardCopy = await uploadToCloudinary(req.files.idCardCopy[0], "restaurants/documents", "idCardCopy");
+      restaurant.idCardCopy = getCloudinaryUrl(req.files.idCardCopy[0]);
     }
     if (req.files?.photo?.[0]) {
-      restaurant.photo = await uploadToCloudinary(req.files.photo[0], "restaurants/photos", "photo");
+      restaurant.photo = getCloudinaryUrl(req.files.photo[0]);
     }
 
     await restaurant.save();
