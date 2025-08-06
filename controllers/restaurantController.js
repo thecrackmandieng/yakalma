@@ -286,27 +286,50 @@ const getRestaurantMenu = async (req, res) => {
 const addMenuItem = async (req, res) => {
   const { name, description, price } = req.body;
   const file = req.file || (req.files?.image ? req.files.image[0] : null);
-  if (!name || !description || !price || !file) return res.status(400).json({ message: 'Tous les champs sont requis.' });
+  
+  if (!name || !description || !price || !file) {
+    return res.status(400).json({ message: 'Tous les champs (nom, description, prix, image) sont requis.' });
+  }
 
   try {
     const restaurantId = req.user.userId;
     if (!restaurantId) return res.status(401).json({ message: "Non autorisé." });
 
-    const imageUrl = await uploadToCloudinary(file, "restaurants/menu", name);
+    // Utilisation directe de l'URL Cloudinary depuis le fichier uploadé
+    const imageUrl = file.path;
 
-    const menuItem = new MenuItem({ name, description, price, image: imageUrl, restaurantId });
+    const menuItem = new MenuItem({ 
+      name, 
+      description, 
+      price: parseFloat(price), 
+      image: imageUrl, 
+      restaurantId 
+    });
+    
     await menuItem.save();
 
     const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) return res.status(404).json({ message: 'Restaurant non trouvé.' });
+    if (!restaurant) {
+      // Si le restaurant n'existe pas, supprimer l'item créé
+      await MenuItem.findByIdAndDelete(menuItem._id);
+      return res.status(404).json({ message: 'Restaurant non trouvé.' });
+    }
 
     restaurant.menu.push(menuItem._id);
     await restaurant.save();
 
-    res.status(201).json({ message: 'Plat ajouté avec succès.', menuItem });
+    res.status(201).json({ 
+      success: true,
+      message: 'Plat ajouté avec succès.', 
+      menuItem 
+    });
   } catch (error) {
     console.error('Erreur addMenuItem:', error);
-    res.status(500).json({ message: 'Erreur serveur.' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur lors de l\'ajout du plat.',
+      error: error.message 
+    });
   }
 };
 
