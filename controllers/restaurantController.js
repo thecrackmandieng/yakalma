@@ -284,11 +284,20 @@ const getRestaurantMenu = async (req, res) => {
 };
 
 const addMenuItem = async (req, res) => {
-  const { name, description, price } = req.body;
+  const { name, description, price, supplements } = req.body;
   const file = req.file || (req.files?.image ? req.files.image[0] : null);
-  
+
   if (!name || !description || !price || !file) {
     return res.status(400).json({ message: 'Tous les champs (nom, description, prix, image) sont requis.' });
+  }
+
+  let supplementsArray = [];
+  if (supplements) {
+    try {
+      supplementsArray = typeof supplements === 'string' ? JSON.parse(supplements) : supplements;
+    } catch (err) {
+      return res.status(400).json({ message: 'Format des suppléments invalide.' });
+    }
   }
 
   try {
@@ -303,7 +312,8 @@ const addMenuItem = async (req, res) => {
       description, 
       price: parseFloat(price), 
       image: imageUrl, 
-      restaurantId 
+      restaurantId,
+      supplements: supplementsArray // Ajout des suppléments ici
     });
     
     await menuItem.save();
@@ -318,18 +328,10 @@ const addMenuItem = async (req, res) => {
     restaurant.menu.push(menuItem._id);
     await restaurant.save();
 
-    res.status(201).json({ 
-      success: true,
-      message: 'Plat ajouté avec succès.', 
-      menuItem 
-    });
+    res.status(201).json({ message: 'Plat ajouté.', menuItem });
   } catch (error) {
     console.error('Erreur addMenuItem:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Erreur serveur lors de l\'ajout du plat.',
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
 
