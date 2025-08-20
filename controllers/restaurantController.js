@@ -284,7 +284,7 @@ const getRestaurantMenu = async (req, res) => {
 };
 
 const addMenuItem = async (req, res) => {
-  const { name, description, price, supplements } = req.body;
+  const { name, description, price, supplements, quantity } = req.body;
   const file = req.file || (req.files?.image ? req.files.image[0] : null);
 
   if (!name || !description || !price || !file) {
@@ -313,7 +313,8 @@ const addMenuItem = async (req, res) => {
       price: parseFloat(price), 
       image: imageUrl, 
       restaurantId,
-      supplements: supplementsArray // Ajout des suppléments ici
+      supplements: supplementsArray,
+      quantity: quantity ? parseInt(quantity) : 1 // Ajout de la quantité si fournie, sinon 1
     });
     
     await menuItem.save();
@@ -328,10 +329,18 @@ const addMenuItem = async (req, res) => {
     restaurant.menu.push(menuItem._id);
     await restaurant.save();
 
-    res.status(201).json({ message: 'Plat ajouté.', menuItem });
+    res.status(201).json({ 
+      success: true,
+      message: 'Plat ajouté avec succès.', 
+      menuItem 
+    });
   } catch (error) {
     console.error('Erreur addMenuItem:', error);
-    res.status(500).json({ message: 'Erreur serveur.' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur lors de l\'ajout du plat.',
+      error: error.message
+    });
   }
 };
 
