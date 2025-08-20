@@ -313,8 +313,8 @@ const addMenuItem = async (req, res) => {
       price: parseFloat(price), 
       image: imageUrl, 
       restaurantId,
-      supplements: supplementsArray,
-      quantity: quantity ? parseInt(quantity) : 1 // Ajout de la quantité si fournie, sinon 1
+      supplements: supplementsArray, // Ajout des suppléments ici
+      quantity: quantity ? parseInt(quantity) : 1 // Ajout de la quantité (stock), défaut 1
     });
     
     await menuItem.save();
@@ -329,18 +329,10 @@ const addMenuItem = async (req, res) => {
     restaurant.menu.push(menuItem._id);
     await restaurant.save();
 
-    res.status(201).json({ 
-      success: true,
-      message: 'Plat ajouté avec succès.', 
-      menuItem 
-    });
+    res.status(201).json({ message: 'Plat ajouté.', menuItem });
   } catch (error) {
     console.error('Erreur addMenuItem:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Erreur serveur lors de l\'ajout du plat.',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
 
