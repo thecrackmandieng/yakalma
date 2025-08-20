@@ -284,7 +284,7 @@ const getRestaurantMenu = async (req, res) => {
 };
 
 const addMenuItem = async (req, res) => {
-  const { name, description, price, supplements, quantity } = req.body;
+  const { name, description, price, supplements } = req.body;
   const file = req.file || (req.files?.image ? req.files.image[0] : null);
 
   if (!name || !description || !price || !file) {
@@ -313,8 +313,7 @@ const addMenuItem = async (req, res) => {
       price: parseFloat(price), 
       image: imageUrl, 
       restaurantId,
-      supplements: supplementsArray, // Ajout des suppléments ici
-      quantity: quantity ? parseInt(quantity) : 1 // Ajout de la quantité (stock), défaut 1
+      supplements: supplementsArray // Ajout des suppléments ici
     });
     
     await menuItem.save();
