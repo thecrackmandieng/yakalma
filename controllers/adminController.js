@@ -3,6 +3,13 @@ const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
 const { sendEmail } = require("../services/email");
 
+// Ajoute ces modèles pour les stats dashboard :
+const Order = require("../models/order.model");
+const Restaurant = require("../models/Restaurant");
+const Livreur = require("../models/Livreur");
+const Client = require("../models/Client");
+
+
 const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
 
 function generateRandomPassword(length = 12) {
@@ -79,12 +86,11 @@ exports.registerSuperAdmin = async (req, res) => {
     await newAdmin.save();
 
     try {
-    await sendEmail(
-  email,
-  "adminRegistration",
-  { name, email, role, password }
-);
-
+      await sendEmail(
+        email,
+        "adminRegistration",
+        { name, email, role, password }
+      );
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }
@@ -117,12 +123,11 @@ exports.registerAdmin = async (req, res) => {
     await newAdmin.save();
 
     try {
-     await sendEmail(
-  email,
-  "adminRegistration",
-  { name, email, role, password }
-);
-
+      await sendEmail(
+        email,
+        "adminRegistration",
+        { name, email, role, password }
+      );
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }
@@ -258,5 +263,56 @@ exports.updateAdmin = async (req, res) => {
   } catch (error) {
     console.error("Erreur lors de la mise à jour de l'admin :", error);
     res.status(500).json({ message: "Erreur du serveur." });
+  }
+};
+
+// =====================
+// Endpoint Dashboard Admin
+// =====================
+exports.getAdminDashboardData = async (req, res) => {
+  try {
+    // Statistiques globales
+    const totalOrders = await Order.countDocuments();
+    const totalRestaurants = await Restaurant.countDocuments();
+    const totalCouriers = await Livreur.countDocuments();
+    const totalUsers = await Client.countDocuments();
+    const totalAdmins = await Admin.countDocuments();
+
+    // Liste des admins
+    const admins = await Admin.find().select('name email role isActive');
+
+    // Historique des commandes (nombre de commandes par mois)
+    const ordersHistory = await Order.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ]);
+
+    // Répartition utilisateurs (clients, livreurs, admins)
+    const userDistribution = [
+      { role: 'admin', count: totalAdmins },
+      { role: 'livreur', count: totalCouriers },
+      { role: 'client', count: totalUsers }
+    ];
+
+    res.json({
+      stats: {
+        totalOrders,
+        totalRestaurants,
+        totalCouriers,
+        totalUsers,
+        totalAdmins
+      },
+      admins,
+      ordersHistory,
+      userDistribution
+    });
+  } catch (error) {
+    console.error("Erreur getAdminDashboardData:", error);
+    res.status(500).json({ message: "Erreur serveur." });
   }
 };

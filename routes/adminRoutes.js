@@ -65,4 +65,13 @@ router.put(
   adminController.updateAdmin
 );
 
+// =====================
+// Route Dashboard Admin
+// =====================
+router.get(
+  "/dashboard-data",
+ 
+  adminController.getAdminDashboardData
+);
+
 module.exports = router;
