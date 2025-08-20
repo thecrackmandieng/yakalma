@@ -9,7 +9,6 @@ const Restaurant = require("../models/Restaurant");
 const Livreur = require("../models/Livreur");
 const Client = require("../models/Client");
 
-
 const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
 
 function generateRandomPassword(length = 12) {
@@ -20,6 +19,10 @@ function generateRandomPassword(length = 12) {
   }
   return password;
 }
+
+// =====================
+// Auth Admin
+// =====================
 
 // Connexion Admin
 exports.loginAdmin = async (req, res) => {
@@ -34,14 +37,10 @@ exports.loginAdmin = async (req, res) => {
       $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
-    if (!admin) {
-      return res.status(401).json({ message: "Administrateur non trouvé." });
-    }
+    if (!admin) return res.status(401).json({ message: "Administrateur non trouvé." });
 
     const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Mot de passe incorrect." });
-    }
+    if (!isMatch) return res.status(401).json({ message: "Mot de passe incorrect." });
 
     const token = jwt.sign(
       { userId: admin._id, role: admin.role },
@@ -69,15 +68,11 @@ exports.loginAdmin = async (req, res) => {
 exports.registerSuperAdmin = async (req, res) => {
   const { name, email, role } = req.body;
 
-  if (!name || !email || !role) {
-    return res.status(400).json({ message: "Tous les champs sont requis." });
-  }
+  if (!name || !email || !role) return res.status(400).json({ message: "Tous les champs sont requis." });
 
   try {
     const existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin) {
-      return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
-    }
+    if (existingAdmin) return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
 
     const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -86,11 +81,7 @@ exports.registerSuperAdmin = async (req, res) => {
     await newAdmin.save();
 
     try {
-      await sendEmail(
-        email,
-        "adminRegistration",
-        { name, email, role, password }
-      );
+      await sendEmail(email, "adminRegistration", { name, email, role, password });
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }
@@ -106,15 +97,11 @@ exports.registerSuperAdmin = async (req, res) => {
 exports.registerAdmin = async (req, res) => {
   const { name, email, role } = req.body;
 
-  if (!name || !email || !role) {
-    return res.status(400).json({ message: "Tous les champs sont requis." });
-  }
+  if (!name || !email || !role) return res.status(400).json({ message: "Tous les champs sont requis." });
 
   try {
     const existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin) {
-      return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
-    }
+    if (existingAdmin) return res.status(400).json({ message: "Un administrateur avec cet email existe déjà." });
 
     const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -123,11 +110,7 @@ exports.registerAdmin = async (req, res) => {
     await newAdmin.save();
 
     try {
-      await sendEmail(
-        email,
-        "adminRegistration",
-        { name, email, role, password }
-      );
+      await sendEmail(email, "adminRegistration", { name, email, role, password });
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email de confirmation:", emailError);
     }
@@ -139,13 +122,15 @@ exports.registerAdmin = async (req, res) => {
   }
 };
 
+// =====================
+// Admin Profil & Gestion
+// =====================
+
 // Récupérer profil admin
 exports.getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.user.userId).select("-password");
-    if (!admin) {
-      return res.status(404).json({ message: "Administrateur non trouvé." });
-    }
+    if (!admin) return res.status(404).json({ message: "Administrateur non trouvé." });
     res.status(200).json({ admin });
   } catch (error) {
     console.error("Erreur lors de la récupération du profil:", error);
@@ -159,9 +144,7 @@ exports.updateAdminProfile = async (req, res) => {
     const adminId = req.user.userId;
     const { name, email, phone } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json({ message: "Le nom et l'email sont requis." });
-    }
+    if (!name || !email) return res.status(400).json({ message: "Le nom et l'email sont requis." });
 
     const updatedAdmin = await Admin.findByIdAndUpdate(
       adminId,
@@ -169,9 +152,7 @@ exports.updateAdminProfile = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-password");
 
-    if (!updatedAdmin) {
-      return res.status(404).json({ message: "Administrateur non trouvé." });
-    }
+    if (!updatedAdmin) return res.status(404).json({ message: "Administrateur non trouvé." });
 
     res.status(200).json({ message: "Profil mis à jour avec succès.", admin: updatedAdmin });
   } catch (error) {
@@ -186,19 +167,13 @@ exports.changePasswordAdmin = async (req, res) => {
     const adminId = req.user.userId;
     const { currentPassword, newPassword } = req.body;
 
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: "Ancien et nouveau mot de passe requis." });
-    }
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: "Ancien et nouveau mot de passe requis." });
 
     const admin = await Admin.findById(adminId);
-    if (!admin) {
-      return res.status(404).json({ message: "Administrateur non trouvé." });
-    }
+    if (!admin) return res.status(404).json({ message: "Administrateur non trouvé." });
 
     const isMatch = await bcrypt.compare(currentPassword, admin.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Ancien mot de passe incorrect." });
-    }
+    if (!isMatch) return res.status(401).json({ message: "Ancien mot de passe incorrect." });
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     admin.password = hashedPassword;
@@ -217,9 +192,7 @@ exports.deleteAdmin = async (req, res) => {
 
   try {
     const deleted = await Admin.findByIdAndDelete(adminId);
-    if (!deleted) {
-      return res.status(404).json({ message: "Administrateur non trouvé." });
-    }
+    if (!deleted) return res.status(404).json({ message: "Administrateur non trouvé." });
 
     res.status(200).json({ message: "Administrateur supprimé avec succès." });
   } catch (error) {
@@ -244,9 +217,7 @@ exports.updateAdmin = async (req, res) => {
   const adminId = req.params.id;
   const { name, email, role, phone } = req.body;
 
-  if (!name || !email ) {
-    return res.status(400).json({ message: "Tous les champs sont requis." });
-  }
+  if (!name || !email ) return res.status(400).json({ message: "Tous les champs sont requis." });
 
   try {
     const updatedAdmin = await Admin.findByIdAndUpdate(
@@ -255,9 +226,7 @@ exports.updateAdmin = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-password");
 
-    if (!updatedAdmin) {
-      return res.status(404).json({ message: "Administrateur non trouvé." });
-    }
+    if (!updatedAdmin) return res.status(404).json({ message: "Administrateur non trouvé." });
 
     res.status(200).json({ message: "Administrateur mis à jour avec succès.", admin: updatedAdmin });
   } catch (error) {
@@ -267,7 +236,7 @@ exports.updateAdmin = async (req, res) => {
 };
 
 // =====================
-// Endpoint Dashboard Admin
+// Dashboard Admin
 // =====================
 exports.getAdminDashboardData = async (req, res) => {
   try {
@@ -299,13 +268,21 @@ exports.getAdminDashboardData = async (req, res) => {
       { role: 'client', count: totalUsers }
     ];
 
+    // 🔹 Montant total des commandes livrées
+    const totalPaymentsAgg = await Order.aggregate([
+      { $match: { status: 'livre' } },
+      { $group: { _id: null, totalPayments: { $sum: '$totalAmount' } } }
+    ]);
+    const totalPayments = totalPaymentsAgg[0]?.totalPayments || 0;
+
     res.json({
       stats: {
         totalOrders,
         totalRestaurants,
         totalCouriers,
         totalUsers,
-        totalAdmins
+        totalAdmins,
+        totalPayments // <- ajouté pour le dashboard
       },
       admins,
       ordersHistory,
