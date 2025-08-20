@@ -11,7 +11,7 @@ const menuItemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   image: { type: String, required: true },
   restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true },
-  supplements: [supplementSchema] // Ajout des suppléments
+  supplements: [supplementSchema]
 }, { timestamps: true });
 
-module.exports
+module.exports = mongoose.model("MenuItem", menuItemSchema);
