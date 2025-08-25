@@ -1,10 +1,11 @@
 const axios = require("axios");
 
+// Initialisation du paiement
 exports.initPayment = async (req, res) => {
   try {
     const { amount, currency, description, customerName, customerEmail } = req.body;
 
-    // Payload attendu par PayTech (doc officielle)
+    // Payload attendu par PayTech
     const payload = {
       item_name: description || "Paiement Yakalma",
       item_price: amount,
@@ -12,24 +13,25 @@ exports.initPayment = async (req, res) => {
       command_name: "Paiement commande",
       ref_command: "CMD-" + Date.now(),
       env: "test", // "test" ou "prod"
-      success_url: process.env.PAYTECH_RETURN_URL,
-      cancel_url: process.env.PAYTECH_RETURN_URL,
-      ipn_url: process.env.PAYTECH_NOTIFY_URL,
+      success_url: process.env.RETURN_URL,
+      cancel_url: process.env.RETURN_URL,
+      ipn_url: process.env.NOTIFY_URL,
       custom_field: {
         client: customerName,
         email: customerEmail
       }
     };
 
+    // Headers pour l'API
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "API_KEY": process.env.PAYTECH_API_KEY,
-      "API_SECRET": process.env.PAYTECH_SECRET_KEY
+      "API_KEY": process.env.API_KEY,
+      "API_SECRET": process.env.API_SECRET
     };
 
     // Appel API PayTech
-    const response = await axios.post(process.env.PAYTECH_API_URL, payload, { headers });
+    const response = await axios.post(process.env.API_URL, payload, { headers });
 
     if (response.data && response.data.success) {
       return res.json({
@@ -65,8 +67,8 @@ exports.returnPayment = async (req, res) => {
   try {
     console.log("↩️ Retour PayTech:", req.query);
 
-    // Tu peux rediriger l’utilisateur vers Angular avec query params
-    res.redirect(process.env.PAYTECH_RETURN_URL + "?status=" + req.query.status);
+    // Rediriger l’utilisateur vers Angular avec query params
+    res.redirect(process.env.RETURN_URL + "?status=" + req.query.status);
   } catch (error) {
     res.status(500).send("Erreur retour paiement");
   }
