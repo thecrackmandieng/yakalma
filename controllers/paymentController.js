@@ -6,17 +6,17 @@ exports.initPayment = async (req, res) => {
     const { amount, currency, description, customerName, customerEmail } = req.body;
 
     // Payload attendu par PayTech
-    const payload = {
-      item_name: description || "Paiement Yakalma",
-      item_price: amount,
-      currency: currency || "XOF",
-      command_name: "Paiement commande",
-      ref_command: "CMD-" + Date.now(),
-      env: "test", // "test" ou "prod"
-      success_url: process.env.RETURN_URL,
-      cancel_url: process.env.RETURN_URL,
-      ipn_url: process.env.NOTIFY_URL,
-    };
+const payload = {
+  item_name: description || "Paiement Yakalma",
+  item_price: Number(amount),
+  currency: currency || "XOF",
+  ref_command: "CMD-" + Date.now(),
+  env: "test",
+  success_url: process.env.RETURN_URL,
+  cancel_url: process.env.RETURN_URL,
+  ipn_url: process.env.NOTIFY_URL
+};
+
 
     // Headers pour l'API
     const headers = {
