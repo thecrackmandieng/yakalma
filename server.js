@@ -14,6 +14,8 @@ const livreurRoutes = require("./routes/livreurRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const cartRoutes = require("./routes/cartRoutes"); // ✅ Nouveau : route pour le panier
+const paymentRoutes = require("./routes/paymentRoutes");
+
 
 const app = express();
 
@@ -64,6 +66,8 @@ app.use("/api/livreurs", livreurRoutes);
 app.use("/api/admins", adminRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/payments", paymentRoutes);
+
 
 // ------------------------
 // Route test pour Render (facultatif)
