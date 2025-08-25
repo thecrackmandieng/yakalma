@@ -404,14 +404,14 @@ const updateMenuItem = async (req, res) => {
 
 // ==========================
 // ✅ Mise à jour profil / mot de passe
-// ==========================
+// ====================
 const updateRestaurantProfile = async (req, res) => {
   try {
     console.log("Corps de la requête:", req.body);
     console.log("Fichiers de la requête:", req.files);
 
     const restaurant = await Restaurant.findById(req.user.userId);
-    if (!restaurant) return res.status(404).json({ message: "Restaurant non trouvé." });
+    if (!restaurant) return res.status(404).json({ message: "Restaurants non trouvé." });
 
     const { managerName, email, phone } = req.body;
     if (managerName) restaurant.managerName = managerName;
