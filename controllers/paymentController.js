@@ -3,7 +3,7 @@ const axios = require("axios");
 // Initialisation du paiement
 exports.initPayment = async (req, res) => {
   try {
-    const { amount, currency, description, customerName, customerEmail } = req.body;
+    const { amount, currency, description } = req.body;
 
     // Payload attendu par PayTech
 const payload = {
