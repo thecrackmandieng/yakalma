@@ -2,7 +2,7 @@ const Order = require("../models/order.model");
 const MenuItem = require("../models/MenuItem");
 const Restaurant = require("../models/Restaurant");
 
-/// ✅ Quand un client passe une commande
+/// Création d'une commande par le client
 exports.createOrder = async (req, res) => {
   const {
     items,
@@ -25,13 +25,11 @@ exports.createOrder = async (req, res) => {
   }
 
   try {
-    // 🔎 Récupérer le restaurant
+    // Récupérer le restaurant
     const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return res.status(404).json({ message: "Restaurant introuvable." });
-    }
+    if (!restaurant) return res.status(404).json({ message: "Restaurant introuvable." });
 
-    // 🔹 On s'assure que chaque item contient bien les suppléments
+    // Assurer que chaque item contient bien les suppléments
     const itemsWithSupplements = items.map(item => ({
       dishId: item.dishId,
       name: item.name,
@@ -43,7 +41,7 @@ exports.createOrder = async (req, res) => {
         : []
     }));
 
-    // ✅ Création de la commande
+    // Création de la commande
     const newOrder = new Order({
       items: itemsWithSupplements,
       customerName,
@@ -69,13 +67,11 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-/// ✅ Pour le restaurant connecté : récupérer ses commandes
+/// Récupérer toutes les commandes du restaurant connecté
 exports.getRestaurantOrders = async (req, res) => {
   try {
     const restaurantId = req.user.userId;
-
     const orders = await Order.find({ restaurantId }).sort({ createdAt: -1 });
-
     res.status(200).json(orders);
   } catch (err) {
     console.error("❌ Erreur getRestaurantOrders:", err);
@@ -83,7 +79,7 @@ exports.getRestaurantOrders = async (req, res) => {
   }
 };
 
-/// ✅ Mettre à jour le statut d’une commande
+/// Mettre à jour le statut d'une commande
 exports.updateOrderStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -106,11 +102,10 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-/// ✅ Pour le livreur connecté : récupérer toutes les commandes dont le statut est "livre"
+/// Récupérer toutes les commandes livrées pour le livreur
 exports.getDeliveredOrdersForLivreur = async (req, res) => {
   try {
     const deliveredOrders = await Order.find({ status: 'livre' }).sort({ createdAt: -1 });
-
     res.status(200).json(deliveredOrders);
   } catch (err) {
     console.error("❌ Erreur getDeliveredOrdersForLivreur:", err);
@@ -118,7 +113,7 @@ exports.getDeliveredOrdersForLivreur = async (req, res) => {
   }
 };
 
-/// ✅ Nouvelle méthode pour assigner la commande à un livreur
+/// Assigner une commande à un livreur
 exports.assignOrderToCourier = async (req, res) => {
   const { id } = req.params;
   const courierId = req.user.userId;
@@ -126,19 +121,16 @@ exports.assignOrderToCourier = async (req, res) => {
   try {
     const order = await Order.findById(id);
 
-    if (!order) {
-      return res.status(404).json({ message: "Commande non trouvée." });
-    }
+    if (!order) return res.status(404).json({ message: "Commande non trouvée." });
 
     if (order.status !== 'livre') {
-      return res.status(400).json({ message: "Commande déjà prise par un livreur." });
+      return res.status(400).json({ message: "Commande déjà prise ou non disponible." });
     }
 
     order.status = 'en_cours';
     order.courierId = courierId;
 
     const updatedOrder = await order.save();
-
     res.status(200).json(updatedOrder);
   } catch (err) {
     console.error("❌ Erreur assignOrderToCourier:", err);
