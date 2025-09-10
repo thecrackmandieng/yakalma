@@ -31,9 +31,21 @@ exports.createOrder = async (req, res) => {
       return res.status(404).json({ message: "Restaurant introuvable." });
     }
 
-    // ✅ Création de la commande avec les infos du restaurant
+    // 🔹 On s'assure que chaque item contient bien les suppléments
+    const itemsWithSupplements = items.map(item => ({
+      dishId: item.dishId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      image: item.image || '',
+      supplements: Array.isArray(item.supplements)
+        ? item.supplements.map(s => ({ name: s.name, price: s.price }))
+        : []
+    }));
+
+    // ✅ Création de la commande
     const newOrder = new Order({
-      items,
+      items: itemsWithSupplements,
       customerName,
       address,
       contact,
@@ -97,7 +109,6 @@ exports.updateOrderStatus = async (req, res) => {
 /// ✅ Pour le livreur connecté : récupérer toutes les commandes dont le statut est "livre"
 exports.getDeliveredOrdersForLivreur = async (req, res) => {
   try {
-    // On ne filtre pas par restaurantId ici, livreur veut voir toutes les commandes livrées
     const deliveredOrders = await Order.find({ status: 'livre' }).sort({ createdAt: -1 });
 
     res.status(200).json(deliveredOrders);
@@ -119,7 +130,6 @@ exports.assignOrderToCourier = async (req, res) => {
       return res.status(404).json({ message: "Commande non trouvée." });
     }
 
-    // On vérifie que la commande est encore disponible (statut livre)
     if (order.status !== 'livre') {
       return res.status(400).json({ message: "Commande déjà prise par un livreur." });
     }
