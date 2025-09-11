@@ -13,31 +13,30 @@ const restaurantRoutes = require("./routes/restaurantRoutes");
 const livreurRoutes = require("./routes/livreurRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const orderRoutes = require("./routes/orderRoutes");
-const cartRoutes = require("./routes/cartRoutes"); // ✅ Nouveau : route pour le panier
+const cartRoutes = require("./routes/cartRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
-
+const walletRoutes = require("./routes/wallet.routes"); // ✅ Route Wallet
 
 const app = express();
 
+// ------------------------
 // Connexion à MongoDB
+// ------------------------
 connectDB();
 
 // ------------------------
 // Middleware CORS
 // ------------------------
 const allowedOrigins = [
-  "http://localhost:4200",                 // ✅ Frontend en dev
-  "https://yakalma-frontend.onrender.com"  // ✅ Frontend en production (Render)
+  "http://localhost:4200",                 // Frontend en dev
+  "https://yakalma-frontend.onrender.com"  // Frontend en prod
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // Autoriser Postman / curl
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error("CORS non autorisé : " + origin));
-    }
+    if (!origin) return callback(null, true); // Postman / curl
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("CORS non autorisé : " + origin));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -57,7 +56,7 @@ if (!fs.existsSync(uploadsPath)) {
 app.use("/uploads", express.static(uploadsPath));
 
 // ------------------------
-// Définition des routes
+// Définition des routes API
 // ------------------------
 app.use("/api/auth", authRoute);
 app.use("/api/clients", clientRoutes);
@@ -67,10 +66,10 @@ app.use("/api/admins", adminRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/payments", paymentRoutes);
-
+app.use("/api/wallet", walletRoutes); // ✅ Wallet / history / update
 
 // ------------------------
-// Route test pour Render (facultatif)
+// Route test simple
 // ------------------------
 app.get("/api/ping", (req, res) => {
   res.json({ message: "✅ Backend Yakalma opérationnel !" });
@@ -80,10 +79,10 @@ app.get("/api/ping", (req, res) => {
 // Gestion globale des erreurs serveur
 // ------------------------
 app.use((err, req, res, next) => {
-  console.error("❌ Erreur globale :", err.stack);
+  console.error("❌ Erreur globale :", err.stack || err);
   res.status(500).json({
     message: "Quelque chose s'est mal passé !",
-    error: err.message,
+    error: err.message || err,
   });
 });
 

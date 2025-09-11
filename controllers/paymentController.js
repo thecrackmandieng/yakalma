@@ -1,19 +1,51 @@
+require('dotenv').config();
 const axios = require("axios");
-const Order = require("../models/order.model"); // Assure-toi d'avoir un modèle Order
+const Order = require("../models/order.model");
+const Wallet = require("../models/wallet.model");
 
-// Initialisation du paiement
+// --- Fonction helper pour envoyer sur Mobile Money ---
+async function sendToMobileMoney(phone, amount, description, provider) {
+  if (!phone || amount <= 0) {
+    console.warn(`⚠️ Données Mobile Money invalides: ${provider} ${phone} ${amount}`);
+    return false;
+  }
+  try {
+    if (provider === "wave") {
+      const res = await axios.post("https://api.wave.com/v1/payments", {
+        phone,
+        amount,
+        currency: "XOF",
+        description
+      }, { headers: { "Authorization": `Bearer ${process.env.WAVE_API_KEY}` } });
+      console.log(`✅ Wave transfer: ${amount} XOF to ${phone}`);
+      return res.data;
+    } else if (provider === "orange") {
+      const res = await axios.post("https://api.orange.com/momo/v1/transfers", {
+        phone,
+        amount,
+        currency: "XOF",
+        description
+      }, { headers: { "Authorization": `Bearer ${process.env.ORANGE_API_KEY}` } });
+      console.log(`✅ Orange Money transfer: ${amount} XOF to ${phone}`);
+      return res.data;
+    }
+  } catch (err) {
+    console.error(`❌ Erreur transfert ${provider} pour ${phone}:`, err.message);
+    return false;
+  }
+}
+
+// --- Initialisation du paiement ---
 exports.initPayment = async (req, res) => {
   try {
-    const { breakdown, currency, description, customerName, customerEmail, restaurantId } = req.body;
+    const { breakdown, currency, description, customerName, customerEmail, restaurantId, livreurId, adminId } = req.body;
 
     if (!breakdown || !breakdown.restaurantAmount || !breakdown.deliveryAmount || !breakdown.serviceAmount) {
       return res.status(400).json({ error: "Breakdown incomplet (restaurant, delivery, service requis)" });
     }
 
-    // ✅ Calcul du total à payer
     const totalAmount = breakdown.restaurantAmount + breakdown.deliveryAmount + breakdown.serviceAmount;
 
-    // Payload attendu par PayTech
     const payload = {
       item_name: description || "Paiement Yakalma",
       item_price: Number(totalAmount),
@@ -27,7 +59,6 @@ exports.initPayment = async (req, res) => {
       customer_email: customerEmail
     };
 
-    // Headers pour l'API
     const headers = {
       "Accept": "application/json",
       "Content-Type": "application/json",
@@ -35,18 +66,18 @@ exports.initPayment = async (req, res) => {
       "API_SECRET": process.env.API_SECRET
     };
 
-    // Appel API PayTech
     const response = await axios.post(process.env.API_URL, payload, { headers });
 
     if (response.data && response.data.success) {
-      // ✅ Sauvegarde en base la commande avec breakdown
       const newOrder = await Order.create({
         restaurantId,
+        livreurId,
+        adminId,
         customerName,
         customerEmail,
         ref_command: payload.ref_command,
         total: totalAmount,
-        amounts: breakdown, // { restaurant: X, delivery: Y, service: Z }
+        amounts: breakdown,
         status: "pending"
       });
 
@@ -65,49 +96,68 @@ exports.initPayment = async (req, res) => {
   }
 };
 
-// Webhook (notify_url)
+// --- Webhook PayTech ---
 exports.notifyPayment = async (req, res) => {
   try {
     console.log("📩 Notification PayTech :", req.body);
 
     const { ref_command, status } = req.body;
+    if (!ref_command) return res.status(400).send("❌ ref_command manquant");
 
-    if (!ref_command) {
-      return res.status(400).send("❌ ref_command manquant");
-    }
-
-    // Récupération de la commande
     const order = await Order.findOne({ ref_command });
-    if (!order) {
-      return res.status(404).send("❌ Commande introuvable");
-    }
+    if (!order) return res.status(404).send("❌ Commande introuvable");
 
-    // Mise à jour du statut
     order.status = status === "completed" ? "paid" : "failed";
     await order.save();
 
     if (status === "completed") {
-      // ⚡ Dispatch interne : créditer les wallets
-      // Exemple: tu peux avoir une collection Wallet avec type: "restaurant", "livreur", "admin"
-      // Ici on simule avec des logs :
+      // --- Création / mise à jour wallets ---
+      const restaurantWallet = await Wallet.findOneAndUpdate(
+        { userId: order.restaurantId },
+        { $setOnInsert: { balance: 0 } },
+        { upsert: true, new: true }
+      );
+      const livreurWallet = await Wallet.findOneAndUpdate(
+        { userId: order.livreurId },
+        { $setOnInsert: { balance: 0 } },
+        { upsert: true, new: true }
+      );
+      const adminWallet = await Wallet.findOneAndUpdate(
+        { userId: order.adminId },
+        { $setOnInsert: { balance: 0 } },
+        { upsert: true, new: true }
+      );
+
+      // --- Crédit interne ---
+      restaurantWallet.balance += order.amounts.restaurantAmount;
+      livreurWallet.balance += order.amounts.deliveryAmount;
+      adminWallet.balance += order.amounts.serviceAmount;
+
+      await restaurantWallet.save();
+      await livreurWallet.save();
+      await adminWallet.save();
+
       console.log(`💰 Crédit restaurant: ${order.amounts.restaurantAmount} XOF`);
       console.log(`🚚 Crédit livreur: ${order.amounts.deliveryAmount} XOF`);
       console.log(`🏛️ Crédit admin: ${order.amounts.serviceAmount} XOF`);
+
+      // --- Transferts Mobile Money ---
+      await sendToMobileMoney(restaurantWallet.phone, order.amounts.restaurantAmount, "Paiement Restaurant", "wave");
+      await sendToMobileMoney(livreurWallet.phone, order.amounts.deliveryAmount, "Frais livraison", "orange");
+      await sendToMobileMoney(adminWallet.phone, order.amounts.serviceAmount, "Frais service", "wave");
     }
 
-    res.status(200).send("OK"); // PayTech attend un 200
+    res.status(200).send("OK");
   } catch (error) {
     console.error("❌ Erreur notify:", error.message);
     res.status(500).send("Erreur");
   }
 };
 
-// Callback retour utilisateur (return_url)
+// --- Callback retour utilisateur ---
 exports.returnPayment = async (req, res) => {
   try {
     console.log("↩️ Retour PayTech:", req.query);
-
-    // Rediriger l’utilisateur vers Angular avec query params
     res.redirect(process.env.RETURN_URL + "?status=" + req.query.status);
   } catch (error) {
     res.status(500).send("Erreur retour paiement");
