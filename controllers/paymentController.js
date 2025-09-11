@@ -3,29 +3,20 @@ const axios = require("axios");
 const Order = require("../models/order.model");
 const Wallet = require("../models/wallet.model");
 
-// --- Fonction helper pour envoyer sur Mobile Money ---
+// --- Helper : transfert Mobile Money ---
 async function sendToMobileMoney(phone, amount, description, provider) {
-  if (!phone || amount <= 0) {
-    console.warn(`⚠️ Données Mobile Money invalides: ${provider} ${phone} ${amount}`);
-    return false;
-  }
   try {
-    if (provider === "wave") {
+    if (provider === "wave" && process.env.WAVE_API_KEY) {
       const res = await axios.post("https://api.wave.com/v1/payments", {
-        phone,
-        amount,
-        currency: "XOF",
-        description
-      }, { headers: { "Authorization": `Bearer ${process.env.WAVE_API_KEY}` } });
+        phone, amount, currency: "XOF", description
+      }, { headers: { Authorization: `Bearer ${process.env.WAVE_API_KEY}` } });
       console.log(`✅ Wave transfer: ${amount} XOF to ${phone}`);
       return res.data;
-    } else if (provider === "orange") {
+    }
+    if (provider === "orange" && process.env.ORANGE_API_KEY) {
       const res = await axios.post("https://api.orange.com/momo/v1/transfers", {
-        phone,
-        amount,
-        currency: "XOF",
-        description
-      }, { headers: { "Authorization": `Bearer ${process.env.ORANGE_API_KEY}` } });
+        phone, amount, currency: "XOF", description
+      }, { headers: { Authorization: `Bearer ${process.env.ORANGE_API_KEY}` } });
       console.log(`✅ Orange Money transfer: ${amount} XOF to ${phone}`);
       return res.data;
     }
@@ -39,10 +30,8 @@ async function sendToMobileMoney(phone, amount, description, provider) {
 exports.initPayment = async (req, res) => {
   try {
     const { breakdown, currency, description, customerName, customerEmail, restaurantId, livreurId, adminId } = req.body;
-
-    if (!breakdown || !breakdown.restaurantAmount || !breakdown.deliveryAmount || !breakdown.serviceAmount) {
-      return res.status(400).json({ error: "Breakdown incomplet (restaurant, delivery, service requis)" });
-    }
+    if (!breakdown || !breakdown.restaurantAmount || !breakdown.deliveryAmount || !breakdown.serviceAmount)
+      return res.status(400).json({ error: "Breakdown incomplet" });
 
     const totalAmount = breakdown.restaurantAmount + breakdown.deliveryAmount + breakdown.serviceAmount;
 
@@ -60,10 +49,10 @@ exports.initPayment = async (req, res) => {
     };
 
     const headers = {
-      "Accept": "application/json",
+      Accept: "application/json",
       "Content-Type": "application/json",
-      "API_KEY": process.env.API_KEY,
-      "API_SECRET": process.env.API_SECRET
+      API_KEY: process.env.API_KEY,
+      API_SECRET: process.env.API_SECRET
     };
 
     const response = await axios.post(process.env.API_URL, payload, { headers });
@@ -78,7 +67,7 @@ exports.initPayment = async (req, res) => {
         ref_command: payload.ref_command,
         total: totalAmount,
         amounts: breakdown,
-        status: "pending"
+        status: "pending" // ✅ On attend le webhook
       });
 
       return res.json({
@@ -87,20 +76,18 @@ exports.initPayment = async (req, res) => {
         ref_command: payload.ref_command,
         orderId: newOrder._id
       });
-    } else {
-      return res.status(400).json({ error: response.data.message || "Erreur PayTech" });
     }
+
+    return res.status(400).json({ error: response.data.message || "Erreur PayTech" });
   } catch (error) {
     console.error("❌ Erreur initPayment:", error.message);
     return res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// --- Webhook PayTech ---
+// --- Webhook PayTech (notify_url) ---
 exports.notifyPayment = async (req, res) => {
   try {
-    console.log("📩 Notification PayTech :", req.body);
-
     const { ref_command, status } = req.body;
     if (!ref_command) return res.status(400).send("❌ ref_command manquant");
 
@@ -111,27 +98,14 @@ exports.notifyPayment = async (req, res) => {
     await order.save();
 
     if (status === "completed") {
-      // --- Création / mise à jour wallets ---
-      const restaurantWallet = await Wallet.findOneAndUpdate(
-        { userId: order.restaurantId },
-        { $setOnInsert: { balance: 0 } },
-        { upsert: true, new: true }
-      );
-      const livreurWallet = await Wallet.findOneAndUpdate(
-        { userId: order.livreurId },
-        { $setOnInsert: { balance: 0 } },
-        { upsert: true, new: true }
-      );
-      const adminWallet = await Wallet.findOneAndUpdate(
-        { userId: order.adminId },
-        { $setOnInsert: { balance: 0 } },
-        { upsert: true, new: true }
-      );
+      // --- Crédit wallets internes ---
+      const restaurantWallet = await Wallet.findOne({ userId: order.restaurantId });
+      const livreurWallet = await Wallet.findOne({ userId: order.livreurId });
+      const adminWallet = await Wallet.findOne({ userId: order.adminId });
 
-      // --- Crédit interne ---
-      restaurantWallet.balance += order.amounts.restaurantAmount;
-      livreurWallet.balance += order.amounts.deliveryAmount;
-      adminWallet.balance += order.amounts.serviceAmount;
+      if (restaurantWallet) restaurantWallet.balance += order.amounts.restaurantAmount;
+      if (livreurWallet) livreurWallet.balance += order.amounts.deliveryAmount;
+      if (adminWallet) adminWallet.balance += order.amounts.serviceAmount;
 
       await restaurantWallet.save();
       await livreurWallet.save();
@@ -154,11 +128,12 @@ exports.notifyPayment = async (req, res) => {
   }
 };
 
-// --- Callback retour utilisateur ---
+// --- Retour utilisateur (success/cancel) ---
 exports.returnPayment = async (req, res) => {
   try {
     console.log("↩️ Retour PayTech:", req.query);
-    res.redirect(process.env.RETURN_URL + "?status=" + req.query.status);
+    // Rediriger vers une page "en attente de confirmation" côté frontend
+    res.redirect(`${process.env.RETURN_URL}?ref_command=${req.query.ref_command}&status=pending`);
   } catch (error) {
     res.status(500).send("Erreur retour paiement");
   }
