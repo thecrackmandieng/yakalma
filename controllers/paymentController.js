@@ -130,11 +130,8 @@ exports.notifyPayment = async (req, res) => {
 
 // --- Retour utilisateur (success/cancel) ---
 exports.returnPayment = async (req, res) => {
-  try {
-    console.log("↩️ Retour PayTech:", req.query);
-    // Rediriger vers une page "en attente de confirmation" côté frontend
-    res.redirect(`${process.env.RETURN_URL}?ref_command=${req.query.ref_command}&status=pending`);
-  } catch (error) {
-    res.status(500).send("Erreur retour paiement");
-  }
+  const { ref_command, status } = req.query;
+  console.log("↩️ Retour PayTech:", req.query);
+  res.redirect(`${process.env.RETURN_URL}?ref_command=${ref_command}&status=${status || 'pending'}`);
 };
+
