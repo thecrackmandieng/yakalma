@@ -20,6 +20,8 @@ async function sendToMobileMoney(phone, amount, description, provider) {
       console.log(`✅ Orange Money transfer: ${amount} XOF to ${phone}`);
       return res.data;
     }
+    console.warn(`⚠️ Provider ${provider} non supporté`);
+    return false;
   } catch (err) {
     console.error(`❌ Erreur transfert ${provider} pour ${phone}:`, err.message);
     return false;
@@ -30,8 +32,10 @@ async function sendToMobileMoney(phone, amount, description, provider) {
 exports.initPayment = async (req, res) => {
   try {
     const { breakdown, currency, description, customerName, customerEmail, restaurantId, livreurId, adminId } = req.body;
-    if (!breakdown || !breakdown.restaurantAmount || !breakdown.deliveryAmount || !breakdown.serviceAmount)
+
+    if (!breakdown || !breakdown.restaurantAmount || !breakdown.deliveryAmount || !breakdown.serviceAmount) {
       return res.status(400).json({ error: "Breakdown incomplet" });
+    }
 
     const totalAmount = breakdown.restaurantAmount + breakdown.deliveryAmount + breakdown.serviceAmount;
 
@@ -94,6 +98,12 @@ exports.notifyPayment = async (req, res) => {
     const order = await Order.findOne({ ref_command });
     if (!order) return res.status(404).send("❌ Commande introuvable");
 
+    // ⚠️ Protection contre double notification
+    if (order.status === "paid") {
+      console.log(`ℹ️ Commande ${ref_command} déjà payée, ignore`);
+      return res.status(200).send("Déjà traité");
+    }
+
     order.status = status === "completed" ? "paid" : "failed";
     await order.save();
 
@@ -107,18 +117,41 @@ exports.notifyPayment = async (req, res) => {
       if (livreurWallet) livreurWallet.balance += order.amounts.deliveryAmount;
       if (adminWallet) adminWallet.balance += order.amounts.serviceAmount;
 
-      await restaurantWallet.save();
-      await livreurWallet.save();
-      await adminWallet.save();
+      await Promise.all([
+        restaurantWallet?.save(),
+        livreurWallet?.save(),
+        adminWallet?.save()
+      ]);
 
       console.log(`💰 Crédit restaurant: ${order.amounts.restaurantAmount} XOF`);
       console.log(`🚚 Crédit livreur: ${order.amounts.deliveryAmount} XOF`);
       console.log(`🏛️ Crédit admin: ${order.amounts.serviceAmount} XOF`);
 
       // --- Transferts Mobile Money ---
-      await sendToMobileMoney(restaurantWallet.phone, order.amounts.restaurantAmount, "Paiement Restaurant", "wave");
-      await sendToMobileMoney(livreurWallet.phone, order.amounts.deliveryAmount, "Frais livraison", "orange");
-      await sendToMobileMoney(adminWallet.phone, order.amounts.serviceAmount, "Frais service", "wave");
+      if (restaurantWallet) {
+        await sendToMobileMoney(
+          restaurantWallet.phone,
+          order.amounts.restaurantAmount,
+          "Paiement Restaurant",
+          restaurantWallet.provider || "wave"
+        );
+      }
+      if (livreurWallet) {
+        await sendToMobileMoney(
+          livreurWallet.phone,
+          order.amounts.deliveryAmount,
+          "Frais livraison",
+          livreurWallet.provider || "orange"
+        );
+      }
+      if (adminWallet) {
+        await sendToMobileMoney(
+          adminWallet.phone,
+          order.amounts.serviceAmount,
+          "Frais service",
+          adminWallet.provider || "wave"
+        );
+      }
     }
 
     res.status(200).send("OK");
@@ -134,4 +167,3 @@ exports.returnPayment = async (req, res) => {
   console.log("↩️ Retour PayTech:", req.query);
   res.redirect(`${process.env.RETURN_URL}?ref_command=${ref_command}&status=${status || 'pending'}`);
 };
-
