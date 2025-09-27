@@ -2,6 +2,11 @@ const Order = require("../models/order.model");
 const MenuItem = require("../models/MenuItem");
 const Restaurant = require("../models/Restaurant");
 
+// Fonction pour générer un code de validation aléatoire
+function generateValidationCode() {
+  return Math.random().toString(36).substr(2, 9).toUpperCase();
+}
+
 /// Création d'une commande par le client
 exports.createOrder = async (req, res) => {
   const {
@@ -93,6 +98,12 @@ exports.updateOrderStatus = async (req, res) => {
     if (!order) return res.status(404).json({ message: "Commande non trouvée." });
 
     order.status = status;
+
+    // Générer le code de validation si la commande est acceptée et qu'il n'existe pas déjà
+    if (status === 'en_cours' && !order.validationCode) {
+      order.validationCode = generateValidationCode();
+    }
+
     await order.save();
 
     res.status(200).json({ message: "Statut mis à jour.", order });
@@ -134,6 +145,30 @@ exports.assignOrderToCourier = async (req, res) => {
     res.status(200).json(updatedOrder);
   } catch (err) {
     console.error("❌ Erreur assignOrderToCourier:", err);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+};
+
+/// Valider une commande avec le code de validation (pour le livreur)
+exports.validateOrderWithCode = async (req, res) => {
+  const { validationCode } = req.body;
+
+  if (!validationCode) {
+    return res.status(400).json({ message: "Code de validation requis." });
+  }
+
+  try {
+    const order = await Order.findOne({ validationCode: validationCode.toUpperCase() });
+
+    if (!order) return res.status(404).json({ message: "Commande non trouvée ou code incorrect." });
+
+    // Marquer comme livrée (status 'livre' pour que ce soit retiré des vues restaurant)
+    order.status = 'livre';
+    await order.save();
+
+    res.status(200).json({ message: "Commande validée avec succès.", order });
+  } catch (err) {
+    console.error("❌ Erreur validateOrderWithCode:", err);
     res.status(500).json({ message: "Erreur serveur." });
   }
 };

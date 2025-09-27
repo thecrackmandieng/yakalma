@@ -15,6 +15,7 @@ router.get('/my', ctrl.getRestaurantOrders);
 // Modifier le statut (accepter, livrer)
 router.patch('/:id/status', ctrl.updateOrderStatus);
 router.patch('/:id/assign', ctrl.assignOrderToCourier);
+router.post('/validate', authMiddleware.verifyLivreurRole, ctrl.validateOrderWithCode);
 
 /**
  * Route pour que le livreur récupère toutes les commandes livrées (status = "livre")

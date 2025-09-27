@@ -40,6 +40,8 @@ const orderSchema = new mongoose.Schema({
     cvc: { type: String },
   },
 
+  validationCode: { type: String, default: null }, // code de validation généré lors de l'acceptation
+
   total: { type: Number } // total de la commande
 }, { timestamps: true });
 
