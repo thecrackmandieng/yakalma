@@ -11,10 +11,17 @@ const livreurSchema = new mongoose.Schema({
     role: { type: String, default: "livreur" }, // ✅ ce champ doit exister
 
   insuranceCopy: { type: String, required: false },
-  status: { 
-    type: String, 
-    enum: ["incomplete", "pending", "approved", "rejected", "blocked"], 
-    default: "incomplete" 
+  status: {
+    type: String,
+    enum: ["incomplete", "pending", "approved", "rejected", "blocked"],
+    default: "incomplete"
+  },
+
+  // Localisation pour suivi en temps réel
+  location: {
+    latitude: { type: Number, required: false },
+    longitude: { type: Number, required: false },
+    lastUpdated: { type: Date, default: Date.now }
   },
 }, {
   timestamps: true,

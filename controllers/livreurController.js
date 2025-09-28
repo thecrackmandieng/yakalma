@@ -294,6 +294,47 @@ const toggleBlockLivreur = async (req, res) => {
   }
 };
 
+// ✅ Mise à jour de la localisation du livreur connecté
+const updateLivreurLocation = async (req, res) => {
+  const { latitude, longitude } = req.body;
+
+  if (latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ message: "Latitude et longitude requises." });
+  }
+
+  try {
+    const livreur = await Livreur.findById(req.user.userId);
+    if (!livreur) return res.status(404).json({ message: "Livreur non trouvé." });
+
+    livreur.location = {
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      lastUpdated: new Date()
+    };
+
+    await livreur.save();
+    res.status(200).json({ message: "Localisation mise à jour." });
+  } catch (err) {
+    console.error("❌ Erreur update location:", err);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+};
+
+// ✅ Récupération de la localisation d'un livreur spécifique
+const getLivreurLocation = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const livreur = await Livreur.findById(id).select("location");
+    if (!livreur) return res.status(404).json({ message: "Livreur non trouvé." });
+
+    res.status(200).json({ location: livreur.location });
+  } catch (err) {
+    console.error("❌ Erreur get location:", err);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+};
+
 // ✅ Exports
 module.exports = {
   preRegisterLivreur,
@@ -306,5 +347,7 @@ module.exports = {
   getAllLivreurs,
   updateLivreur,
   deleteLivreur,
-  toggleBlockLivreur
+  toggleBlockLivreur,
+  updateLivreurLocation,
+  getLivreurLocation
 };

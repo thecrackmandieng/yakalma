@@ -99,4 +99,18 @@ router.put(
   livreurController.toggleBlockLivreur
 );
 
+// Mise à jour localisation livreur (livreur connecté)
+router.put(
+  "/location",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["livreur"]),
+  livreurController.updateLivreurLocation
+);
+
+// Récupération localisation livreur (public ou client)
+router.get(
+  "/location/:id",
+  livreurController.getLivreurLocation
+);
+
 module.exports = router;

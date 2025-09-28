@@ -5,7 +5,7 @@ const generator = require('generate-password');
 
 // Inscription client
 const registerClient = async (req, res) => {
-  const { fullName, email, phone } = req.body;
+  const { fullName, email, phone, address } = req.body;
 
   try {
     const userExists = await Client.findOne({ email });
@@ -28,6 +28,12 @@ const registerClient = async (req, res) => {
       phone,
       password: hashedPassword,
     });
+
+    // Ajouter l'adresse si fournie
+    if (address) {
+      newClient.addresses.push(address);
+    }
+
     await newClient.save();
 
     await sendEmail(
@@ -40,6 +46,7 @@ const registerClient = async (req, res) => {
     res.status(201).json({
       message:
         'Inscription réussie. Veuillez vérifier votre e-mail pour votre mot de passe temporaire.',
+      client: newClient
     });
   } catch (err) {
     res.status(500).json({ message: 'Erreur du serveur', error: err.message });

@@ -34,6 +34,10 @@ const orderSchema = new mongoose.Schema({
 
   status: { type: String, enum: ['en_attente', 'en_cours', 'livre'], default: 'en_attente' },
 
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client", default: null }, // client associé
+
+  clientStatus: { type: String, enum: ['en_cours', 'accepte', 'rembourse', 'annullee'], default: 'en_cours' }, // statut vu par le client
+
   paymentInfo: {
     card: { type: String },
     exp: { type: String },
