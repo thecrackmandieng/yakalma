@@ -6,18 +6,18 @@ const router = express.Router();
 const restaurantController = require("../controllers/restaurantController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-// 📂 Configuration CloudinaryStorage pour upload automatique vers Cloudinary
+// 📂 Configuration CloudinaryStorage
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const folderName = "yakalma/restaurants";
     const fieldName = file.fieldname;
-    
+
     return {
       folder: `${folderName}/${fieldName}`,
       allowed_formats: ["jpg", "jpeg", "png", "pdf", "webp"],
       public_id: `${fieldName}-${Date.now()}`,
-      resource_type: "auto"
+      resource_type: "auto",
     };
   },
 });
@@ -27,7 +27,6 @@ const upload = multer({ storage });
 // ========== PHASE 1: Préinscription ==========
 router.post("/pre-register", restaurantController.preRegisterRestaurant);
 
-
 // ========== PHASE 2: Enregistrement complet ==========
 router.post(
   "/register",
@@ -35,8 +34,8 @@ router.post(
     { name: "permis", maxCount: 1 },
     { name: "certificat", maxCount: 1 },
     { name: "autresDocs", maxCount: 1 },
-    { name: "idCardCopy", maxCount: 1 }, 
-    { name: "photo", maxCount: 1 }
+    { name: "idCardCopy", maxCount: 1 },
+    { name: "photo", maxCount: 1 },
   ]),
   restaurantController.registerRestaurant
 );
@@ -56,7 +55,7 @@ router.put(
     { name: "certificat", maxCount: 1 },
     { name: "autresDocs", maxCount: 1 },
     { name: "idCardCopy", maxCount: 1 },
-    { name: "photo", maxCount: 1 }
+    { name: "photo", maxCount: 1 },
   ]),
   authMiddleware.verifyToken,
   authMiddleware.checkRole(["restaurant"]),
@@ -70,12 +69,8 @@ router.put(
   restaurantController.changePassword
 );
 
-// ========== ADMIN / SUPERADMIN - GESTION DES RESTAURANTS ==========
-router.get(
-  "/all",
-
-  restaurantController.getAllRestaurants
-);
+// ========== ADMIN / SUPERADMIN ==========
+router.get("/all", restaurantController.getAllRestaurants);
 
 router.put(
   "/update/:id",
@@ -84,7 +79,7 @@ router.put(
     { name: "certificat", maxCount: 1 },
     { name: "autresDocs", maxCount: 1 },
     { name: "idCardCopy", maxCount: 1 },
-    { name: "photo", maxCount: 1 }
+    { name: "photo", maxCount: 1 },
   ]),
   authMiddleware.verifyToken,
   authMiddleware.checkRole(["Admin", "SuperAdmin"]),
@@ -112,11 +107,9 @@ router.put(
   restaurantController.toggleBlockRestaurant
 );
 
-// ========== MENU - POUR LES RESTAURANTS CONNECTÉS ==========
-router.get(
-  "/menu/restaurant/:restaurantId",
-  restaurantController.getMenuByRestaurantId
-);
+// ========== MENU ==========
+router.get("/menu/restaurant/:restaurantId", restaurantController.getMenuByRestaurantId);
+
 router.get(
   "/menu",
   authMiddleware.verifyToken,
@@ -146,10 +139,30 @@ router.put(
   upload.single("image"),
   restaurantController.updateMenuItem
 );
-// --- Ajout de la route pour récupérer un restaurant par ID ---
-router.get(
-  "/:id",
-  restaurantController.getRestaurantById
+
+// ========== TABLES (PLACÉ AVANT /:id POUR ÉVITER LE BUG) ==========
+router.post(
+  "/tables",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["restaurant"]),
+  restaurantController.createTable
 );
+
+router.get(
+  "/tables",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["restaurant"]),
+  restaurantController.getTables
+);
+
+router.delete(
+  "/tables/:id",
+  authMiddleware.verifyToken,
+  authMiddleware.checkRole(["restaurant"]),
+  restaurantController.deleteTable
+);
+
+// ========== FIN — ROUTE DYNAMIQUE À LA FIN ==========
+router.get("/:id", restaurantController.getRestaurantById);
 
 module.exports = router;

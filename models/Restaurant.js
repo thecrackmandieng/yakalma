@@ -36,6 +36,14 @@ const restaurantSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'MenuItem'
     }
+  ],
+
+  // ✅ Nouveau champ pour la relation avec les tables
+  tables: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Table'
+    }
   ]
 }, {
   timestamps: true

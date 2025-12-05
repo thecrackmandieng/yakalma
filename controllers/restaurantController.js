@@ -2,8 +2,10 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Restaurant = require("../models/Restaurant");
 const MenuItem = require("../models/MenuItem");
+const Table = require("../models/Table");
 const emailService = require("../services/email");
 const cloudinary = require("../config/cloudinary");
+const QRCode = require('qrcode');
 
 // 🔐 Génère un mot de passe aléatoire
 function generateRandomPassword(length = 10) {
@@ -466,6 +468,82 @@ const changePassword = async (req, res) => {
 };
 
 // ==========================
+// ✅ Gestion tables
+// ==========================
+const createTable = async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: 'Le nom de la table est requis.' });
+
+  try {
+    const restaurantId = req.user.userId;
+
+    // Générer l'URL pour le QR code
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200'; // Ajuster selon l'environnement
+    const menuUrl = `${frontendUrl}/restaurant/${restaurantId}/menu`; // Rediriger vers la liste des menus du restaurant
+
+    // Générer le QR code en base64
+    const qrCodeDataURL = await QRCode.toDataURL(menuUrl);
+
+    // Créer la table
+    const newTable = new Table({
+      name,
+      qrCode: qrCodeDataURL,
+      restaurantId
+    });
+
+    await newTable.save();
+
+    // Ajouter la table au restaurant
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) return res.status(404).json({ message: 'Restaurant non trouvé.' });
+
+    restaurant.tables.push(newTable._id);
+    await restaurant.save();
+
+    res.status(201).json({ message: 'Table créée avec succès.', table: newTable });
+  } catch (error) {
+    console.error('Erreur createTable:', error);
+    res.status(500).json({ message: 'Erreur serveur.' });
+  }
+};
+
+const getTables = async (req, res) => {
+  try {
+    console.log('USER:', req.user);  // <-- Ajoute ça
+    const restaurantId = req.user.userId;
+    const tables = await Table.find({ restaurantId }).sort({ createdAt: -1 });
+    res.status(200).json({ tables });
+  } catch (error) {
+    console.error('Erreur getTables:', error);
+    res.status(500).json({ message: 'Erreur serveur.' });
+  }
+};
+
+
+const deleteTable = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const restaurantId = req.user.userId;
+
+    // Vérifier que la table appartient au restaurant
+    const table = await Table.findOne({ _id: id, restaurantId });
+    if (!table) return res.status(404).json({ message: 'Table non trouvée.' });
+
+    // Supprimer la table
+    await Table.findByIdAndDelete(id);
+
+    // Retirer la table du restaurant
+    await Restaurant.findByIdAndUpdate(restaurantId, { $pull: { tables: id } });
+
+    res.status(200).json({ message: 'Table supprimée avec succès.' });
+  } catch (error) {
+    console.error('Erreur deleteTable:', error);
+    res.status(500).json({ message: 'Erreur serveur.' });
+  }
+};
+
+// ==========================
 // ✅ Exports
 // ==========================
 module.exports = {
@@ -486,4 +564,7 @@ module.exports = {
   changePassword,
   getRestaurantById,
   updateMenuItem,
+  createTable,
+  getTables,
+  deleteTable,
 };
