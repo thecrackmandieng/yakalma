@@ -478,7 +478,7 @@ const createTable = async (req, res) => {
     const restaurantId = req.user.userId;
 
     // Générer l'URL pour le QR code
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200'; // Ajuster selon l'environnement
+    const frontendUrl = process.env.FRONTEND_URL || 'https://yakalma-frontend.onrender.com'; // Ajuster selon l'environnement
     const menuUrl = `${frontendUrl}/restaurant/${restaurantId}/menu`; // Rediriger vers la liste des menus du restaurant
 
     // Générer le QR code en base64
