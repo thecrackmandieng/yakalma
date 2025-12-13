@@ -29,7 +29,8 @@ connectDB();
 // ------------------------
 const allowedOrigins = [
   "http://localhost:4200",                 // Frontend en dev
-  "https://yakalma-frontend.onrender.com"  // Frontend en prod
+  "https://yakalma-frontend.onrender.com",  // Frontend en prod
+  "https://yakalma-client.onrender.com"
 ];
 
 app.use(cors({
