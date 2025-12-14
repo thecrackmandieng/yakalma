@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const Admin = require('./models/Admin');
 const Restaurant = require('./models/Restaurant');
+const MenuItem = require('./models/MenuItem');
 const Livreur = require('./models/Livreur');
 const Client = require('./models/Client');
 require('dotenv').config();
@@ -19,6 +20,14 @@ const connectDB = async () => {
 
 const seedData = async () => {
   try {
+    // Nettoyer les collections existantes
+    await Admin.deleteMany({});
+    await Restaurant.deleteMany({});
+    await MenuItem.deleteMany({});
+    await Livreur.deleteMany({});
+    await Client.deleteMany({});
+    console.log('🧹 Collections nettoyées');
+
     // Hash le mot de passe de l'admin
     const adminPassword = await bcrypt.hash('0405Dieng@', 10);
 
@@ -70,11 +79,136 @@ const seedData = async () => {
       },
     ];
 
+    const createdRestaurants = [];
     for (const resto of restaurants) {
       const restaurant = new Restaurant(resto);
       await restaurant.save();
+      createdRestaurants.push(restaurant);
     }
     console.log('✅ 3 Restaurants créés avec succès !');
+
+    // Créer des plats pour chaque restaurant
+    const menuItemsData = [
+      // Plats pour Le Gourmet
+      [
+        {
+          name: 'Poulet Yassa',
+          description: 'Poulet mariné au citron et aux oignons, servi avec du riz.',
+          price: 15000,
+          image: '/Assets/Images/plat1fr.jpeg',
+          supplements: [
+            { name: 'Extra Riz', price: 2000 },
+            { name: 'Sauce Supplémentaire', price: 1000 }
+          ],
+          quantity: 10
+        },
+        {
+          name: 'Thiébou Djeun',
+          description: 'Riz au poisson frais avec légumes.',
+          price: 18000,
+          image: '/Assets/Images/plat2.jpg',
+          supplements: [
+            { name: 'Poisson Extra', price: 5000 }
+          ],
+          quantity: 8
+        },
+        {
+          name: 'Salade César',
+          description: 'Salade fraîche avec poulet grillé et sauce César.',
+          price: 12000,
+          image: '/Assets/Images/plat3.jpg',
+          supplements: [],
+          quantity: 15
+        }
+      ],
+      // Plats pour Chez Marie
+      [
+        {
+          name: 'Grillade de Viande',
+          description: 'Viande grillée accompagnée de légumes.',
+          price: 20000,
+          image: '/Assets/Images/plat4.jpg',
+          supplements: [
+            { name: 'Frites', price: 3000 },
+            { name: 'Sauce BBQ', price: 1500 }
+          ],
+          quantity: 12
+        },
+        {
+          name: 'Pâtes Bolognaise',
+          description: 'Pâtes avec sauce bolognaise maison.',
+          price: 14000,
+          image: '/Assets/Images/plat1fr.jpeg',
+          supplements: [
+            { name: 'Parmesan', price: 2000 }
+          ],
+          quantity: 10
+        },
+        {
+          name: 'Dessert au Chocolat',
+          description: 'Mousse au chocolat avec fruits frais.',
+          price: 8000,
+          image: '/Assets/Images/plat2.jpg',
+          supplements: [],
+          quantity: 20
+        }
+      ],
+      // Plats pour La Belle Époque
+      [
+        {
+          name: 'Soupe de Poisson',
+          description: 'Soupe traditionnelle sénégalaise au poisson.',
+          price: 16000,
+          image: '/Assets/Images/plat3.jpg',
+          supplements: [
+            { name: 'Pain', price: 1000 }
+          ],
+          quantity: 9
+        },
+        {
+          name: 'Tacos Mexicains',
+          description: 'Tacos avec viande et légumes frais.',
+          price: 13000,
+          image: '/Assets/Images/plat4.jpg',
+          supplements: [
+            { name: 'Guacamole', price: 2500 }
+          ],
+          quantity: 11
+        },
+        {
+          name: 'Café Expresso',
+          description: 'Café noir traditionnel.',
+          price: 3000,
+          image: '/Assets/Images/plat1fr.jpeg',
+          supplements: [],
+          quantity: 25
+        },
+        {
+          name: 'Croissant',
+          description: 'Croissant frais du jour.',
+          price: 4000,
+          image: '/Assets/Images/plat2.jpg',
+          supplements: [],
+          quantity: 30
+        }
+      ]
+    ];
+
+    for (let i = 0; i < createdRestaurants.length; i++) {
+      const restaurant = createdRestaurants[i];
+      const items = menuItemsData[i];
+
+      for (const itemData of items) {
+        const menuItem = new MenuItem({
+          ...itemData,
+          restaurantId: restaurant._id
+        });
+        await menuItem.save();
+        restaurant.menu.push(menuItem._id);
+      }
+      await restaurant.save();
+    }
+    console.log('✅ Plats créés et associés aux restaurants avec succès !');
 
     // Hash le mot de passe pour les livreurs
     const livreurPassword = await bcrypt.hash('password123', 10);
