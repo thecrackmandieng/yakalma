@@ -38,7 +38,6 @@ const registerClient = async (req, res) => {
 
     await sendEmail(
       email,
-      'Bienvenue sur Yakalma',
       'clientRegistration',
       { name: fullName, email, password }
     );

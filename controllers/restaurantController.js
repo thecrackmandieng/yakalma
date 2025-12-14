@@ -478,8 +478,10 @@ const createTable = async (req, res) => {
     const restaurantId = req.user.userId;
 
     // Générer l'URL pour le QR code
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200'; // Ajuster selon l'environnement
-    const menuUrl = `${frontendUrl}/restaurant/${restaurantId}/menu`; // Rediriger vers la liste des menus du restaurant
+    const frontendUrl = process.env.FRONTEND_URL ; // Ajuster selon l'environnement
+    const menuUrl = `${frontendUrl}/restaurant/${restaurantId}`; // Rediriger vers la liste des menus du restaurant client
+    // const menuUrl1 = `${frontendUrl}/restaurant/${restaurantId}/menu`; 
+
 
     // Générer le QR code en base64
     const qrCodeDataURL = await QRCode.toDataURL(menuUrl);
