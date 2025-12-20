@@ -1,6 +1,10 @@
 const Order = require("../models/order.model");
 const MenuItem = require("../models/MenuItem");
 const Restaurant = require("../models/Restaurant");
+const Client = require("../models/Client");
+const { sendEmail } = require('../services/email');
+const generator = require('generate-password');
+const bcrypt = require('bcrypt');
 
 // Fonction pour générer un code de validation aléatoire
 function generateValidationCode() {
@@ -12,8 +16,10 @@ exports.createOrder = async (req, res) => {
   const {
     items,
     customerName,
+    email,
     address,
     contact,
+    location,
     restaurantId: restaurantIdFromBody,
     card,
     exp,
@@ -24,17 +30,59 @@ exports.createOrder = async (req, res) => {
 
   if (
     !items || !Array.isArray(items) || items.length === 0 ||
-    !customerName || !address || !contact || !restaurantId
+    !customerName || !contact || !location || location.latitude == null ||
+    location.longitude == null
   ) {
-    return res.status(400).json({ message: "Données invalides." });
+    return res.status(400).json({ message: "Informations de commande ou GPS manquantes." });
   }
 
   try {
+    // Vérifier si le client existe
+    let client = await Client.findOne({ email });
+    let generatedPassword = null;
+
+    if (!client) {
+      // Créer un compte automatiquement
+      generatedPassword = generator.generate({
+        length: 10,
+        numbers: true,
+        symbols: true,
+        uppercase: true,
+        excludeSimilarCharacters: true,
+      });
+
+      const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+      client = new Client({
+        fullName: customerName,
+        email,
+        phone: contact,
+        password: hashedPassword,
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude
+        }
+      });
+
+      if (address) {
+        client.addresses.push({ label: 'Position GPS', address, location });
+      }
+
+      await client.save();
+
+      // Envoyer le mot de passe par email
+      await sendEmail(email, 'clientRegistration', {
+        name: customerName,
+        email,
+        password: generatedPassword
+      });
+    }
+
     // Récupérer le restaurant
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) return res.status(404).json({ message: "Restaurant introuvable." });
 
-    // Assurer que chaque item contient bien les suppléments
+    // Préparer les items
     const itemsWithSupplements = items.map(item => ({
       dishId: item.dishId,
       name: item.name,
@@ -52,23 +100,32 @@ exports.createOrder = async (req, res) => {
       customerName,
       address,
       contact,
+      clientId: client._id,
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude
+      },
       restaurantId,
       status: 'en_attente',
       paymentInfo: { card, exp, cvc },
       restaurantName: restaurant.name,
       restaurantPhone: restaurant.phone,
-      restaurantAddress: restaurant.address
+      restaurantAddress: restaurant.address,
+      courierLocation: null, // Pour suivi temps réel
+      validationCode: null   // Pour code de validation lors de la livraison
     });
 
     const savedOrder = await newOrder.save();
 
     res.status(201).json({
       message: "Commande créée avec succès",
-      order: savedOrder
+      order: savedOrder,
+      clientCreated: generatedPassword ? true : false,
+      passwordSentToEmail: generatedPassword ? true : false
     });
   } catch (err) {
     console.error("❌ Erreur createOrder:", err);
-    res.status(500).json({ message: "Erreur serveur." });
+    res.status(500).json({ message: "Erreur serveur.", error: err.message });
   }
 };
 
@@ -140,6 +197,7 @@ exports.assignOrderToCourier = async (req, res) => {
 
     order.status = 'en_cours';
     order.courierId = courierId;
+    order.courierLocation = null; // initialiser le suivi
 
     const updatedOrder = await order.save();
     res.status(200).json(updatedOrder);
@@ -149,7 +207,29 @@ exports.assignOrderToCourier = async (req, res) => {
   }
 };
 
-/// Valider une commande avec le code de validation (pour le livreur)
+/// Mise à jour position du livreur pour suivi temps réel
+exports.updateCourierLocation = async (req, res) => {
+  const { orderId, latitude, longitude } = req.body;
+  const courierId = req.user.userId;
+
+  if (!latitude || !longitude) return res.status(400).json({ message: "GPS requis." });
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ message: "Commande non trouvée." });
+    if (order.courierId.toString() !== courierId) return res.status(403).json({ message: "Non autorisé." });
+
+    order.courierLocation = { latitude, longitude, updatedAt: new Date() };
+    await order.save();
+
+    res.status(200).json({ message: "Position mise à jour.", courierLocation: order.courierLocation, customerLocation: order.location });
+  } catch (err) {
+    console.error("❌ Erreur updateCourierLocation:", err);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+};
+
+/// Valider une commande avec le code de validation
 exports.validateOrderWithCode = async (req, res) => {
   const { validationCode } = req.body;
 
@@ -162,7 +242,6 @@ exports.validateOrderWithCode = async (req, res) => {
 
     if (!order) return res.status(404).json({ message: "Commande non trouvée ou code incorrect." });
 
-    // Marquer comme livrée (status 'livre' pour que ce soit retiré des vues restaurant)
     order.status = 'livre';
     await order.save();
 
